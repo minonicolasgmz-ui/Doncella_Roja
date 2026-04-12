@@ -1,442 +1,588 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { DndContext, DragEndEvent, useDraggable, useDroppable } from '@dnd-kit/core'
 
-/* ─── DATA ────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════
+   DATA — extracted from the OCR text of the novel
+   ═══════════════════════════════════════════════════════════ */
 
 interface JourneyStop {
   id: number
   name: string
-  location: string
+  lat: number
+  lng: number
   altitude: string
   date: string
   description: string
   icon: string
-  x: number
-  y: number
   phase: 'ida' | 'descubrimiento' | 'regreso' | 'retorno'
+  distanceFromPrev?: string
 }
 
 const journeyStops: JourneyStop[] = [
   {
     id: 1,
     name: 'Tinogasta',
-    location: 'Provincia de Catamarca',
+    lat: -28.0639,
+    lng: -67.5642,
     altitude: '1.500 m',
     date: '13 de abril',
     description:
-      'El equipo del Proyecto Pissis llega a Tinogasta. Compran provisiones y agua. Manuel visita la casa de Teresa pero no la encuentra. Prefiere quedarse en la hostería con el grupo.',
+      'El equipo del Proyecto Pissis llegó a Tinogasta. Esa noche durmieron en una hostería porque al día siguiente tenían que terminar de comprar las provisiones y el agua. Manuel fue hasta la casa de Teresa, pero tal como ella le había dicho, no estaba.',
     icon: '🏠',
-    x: 22,
-    y: 38,
     phase: 'ida',
   },
   {
     id: 2,
-    name: 'Campamento Base',
-    location: 'Volcán Pissis',
+    name: 'Campamento Base — Volcán Pissis',
+    lat: -27.772,
+    lng: -68.767,
     altitude: '4.600 m',
     date: '15 de abril',
     description:
-      'A las 6:00 parten en tres camionetas 4x4 rumbo al Pissis. Pasan las lagunas Del Aparejo, la Azul y la Verde con flamencos rosados. Llegan al Campamento Base a las 16:00. Arman cuatro carpas. Se quedan dos días para aclimatarse. Los baqueanos dejan ofrendas de alcohol, tabaco y coca en la apacheta.',
+      'A las seis en punto, los tres vehículos partieron rumbo al Pissis. Desde la ventanilla se veían las lagunas Del Aparejo, la Azul, la Verde con sus flamencos rosados. A las cuatro de la tarde llegaron al Campamento Base. Armaron cuatro carpas. Se quedarían dos días para aclimatarse. En el Campamento Base había una apacheta donde los que subían dejaban sus ofrendas a la Pachamama. Alcohol, tabaco, coca.',
     icon: '⛺',
-    x: 28,
-    y: 26,
     phase: 'ida',
+    distanceFromPrev: '~120 km por huella',
   },
   {
     id: 3,
-    name: 'Campamento de Altura 1',
-    location: 'Volcán Pissis',
+    name: 'Campamento de Altura 1 (C1)',
+    lat: -27.768,
+    lng: -68.788,
     altitude: '5.850 m',
     date: '18 de abril',
     description:
-      'La expedición parte hacia el C1. La subida es dura, la falta de oxígeno se nota. Llegan a las 15:30 bastante agotados. Temperatura: -15°C. Arman las carpas, cenan sopas instantáneas y se van a dormir.',
+      'A las nueve de la mañana del tercer día, la expedición partió hacia el C1. La subida había sido dura. La falta de oxígeno se notaba en el cansancio de todos. Llegaron a las tres y media de la tarde, bastante agotados. La temperatura había descendido a quince grados bajo cero y el viento era tolerable.',
     icon: '🏔️',
-    x: 34,
-    y: 18,
     phase: 'ida',
+    distanceFromPrev: '~8 km de trekking',
   },
   {
     id: 4,
-    name: 'Campamento de Altura 2',
-    location: 'Volcán Pissis',
+    name: 'Campamento de Altura 2 (C2)',
+    lat: -27.764,
+    lng: -68.795,
     altitude: '6.350 m',
     date: '19 de abril',
     description:
-      'El cuarto día es todavía más duro. Arman el C2 a 6.350 m. La consigna es hidratarse y descansar. A medianoche, Lucía presenta síntomas de mal de altura: dolor de cabeza y náuseas. Hay que bajarla de inmediato. Manuel la acompaña en el descenso nocturno con linternas, a -30°C.',
+      'El cuarto día fue todavía más duro. La consigna fue hidratarse y descansar porque al día siguiente se levantarían temprano para llegar a la cumbre. A medianoche Vera llamó a la carpa de Manuel. Lucía no estaba bien. Tenía síntomas de mal de altura. Dolor de cabeza y náuseas. Había que bajarla de inmediato. Manuel la acompañó en el descenso nocturno a -30°C con linternas.',
     icon: '⛰️',
-    x: 40,
-    y: 12,
     phase: 'ida',
+    distanceFromPrev: '~4 km de trekking',
   },
   {
     id: 5,
-    name: 'La Cumbre — Descubrimiento',
-    location: 'Volcán Pissis',
+    name: 'Cumbre del Pissis — Descubrimiento',
+    lat: -27.7636,
+    lng: -68.7928,
     altitude: '6.800 m',
     date: '20 de abril',
     description:
-      'El equipo llega a la cumbre antes del mediodía. Vera marca cuatro cuadrículas. Al mediodía, Gabriel agita los brazos: ¡ha encontrado una estatuilla de spondylus rojo! En su cuadrícula se adivina el círculo de piedras del enterratorio. A las 15:00 liberan el fardo funerario. Gabriel levanta el fardo envuelto en un manto rojo. Todos lloran de emoción. Lo envuelven en gomaespuma y Chañás lo carga al C2.',
+      'Llegaron antes del mediodía. Vera marcó cuatro cuadrículas. Al mediodía, Gabriel empezó a agitar los brazos: "¡Doctora Larsen!" — había encontrado una estatuilla de spondylus rojo, tan rojo que casi encandilaba. Ya se adivinaba el círculo de piedras que protegía el enterratorio. A las tres de la tarde habían liberado el fardo funerario. Gabriel lo levantó envuelto en un manto rojo. "Una piedra preciosa en medio de las cumbres nevadas de los Andes." Mark se abrazó con Vera y, debajo de las antiparras, lloraban los dos.',
     icon: '🔴',
-    x: 46,
-    y: 6,
     phase: 'descubrimiento',
+    distanceFromPrev: '~3 km de escalada',
   },
   {
     id: 6,
-    name: 'Descenso con la Momia',
-    location: 'Pissis → C1',
+    name: 'Descenso con la Momia — C1',
+    lat: -27.768,
+    lng: -68.788,
     altitude: '5.850 m',
     date: '21 de abril',
     description:
-      'Vera y Chañás bajan con la momia. Vera se siente liviana al llegar al C1, donde la espera Manuel. Lo abraza emocionada: "¡La encontramos, Acevedo!" Avisan a Gendarmería para que los espere en el Campamento Base con una camioneta y hielo seco.',
+      'Vera y Chañás bajaron con la momia. A medida que bajaban había más oxígeno. Cuando llegó al C1, Vera se sentía liviana como una pluma. Apuró los últimos pasos casi saltando hasta donde la esperaba Manuel. Y lo abrazó: "¡La encontramos, Acevedo! ¡La encontramos!" Avisaron a Gendarmería para que los esperaran en el Campamento Base con una camioneta lista y con hielo seco.',
     icon: '📦',
-    x: 40,
-    y: 14,
     phase: 'descubrimiento',
+    distanceFromPrev: '~4 km de descenso',
   },
   {
     id: 7,
-    name: 'Tinogasta → Salta (MAAM)',
-    location: 'Museo de Arqueología de Alta Montaña',
+    name: 'MAAM — Salta',
+    lat: -24.7883,
+    lng: -65.4106,
     altitude: '1.200 m',
     date: '22-25 de abril',
     description:
-      'El fardo viaja en vehículo con caja frigorífica desde Tinogasta hasta el MAAM en Salta. En los laboratorios del subsuelo, con la tecnología más moderna, beginsu estudio. Manuel siente que su corazón se ha partido en pedazos al ver el fardo en la montaña helada.',
+      'El fardo pasaría a un vehículo con caja frigorífica para hacer el trayecto hasta el Museo de Arqueología de Alta Montaña, en Salta. El mismo lugar donde estaban las momias de los niños del volcán Llullaillaco. En los laboratorios del subsuelo del museo contaban con la tecnología más moderna para preservar a la momia. Manuel sintió que su corazón se había partido en pedazos.',
     icon: '🏛️',
-    x: 52,
-    y: 32,
     phase: 'descubrimiento',
+    distanceFromPrev: '~450 km por ruta',
   },
   {
     id: 8,
-    name: 'Salta → Maryland, EE.UU.',
-    location: 'Universidad de Maryland',
+    name: 'Universidad de Maryland — EE.UU.',
+    lat: 38.9869,
+    lng: -76.9426,
     altitude: '50 m',
     date: 'Octubre 2008',
     description:
-      'La momia viaja a la Universidad de Maryland para estudios avanzados. Científicos de Japón, Suecia y Alemania participan. Descubren que el sapo de oro del estómago contiene un diminuto quipu con tres nudos: un mensaje secreto a los dioses. El profesor González investiga incansablemente el significado del sapo como símbolo de la Pachamama.',
+      'Cinco especialistas de Japón, Suecia y Alemania confirmaron su presencia para estudiar a "La Doncella Roja". Descubrieron que el pequeñísimo sapo de oro que la Doncella tenía en su estómago también era hueco. Y habían detectado materia orgánica: podría contener un diminuto quipu. "La Doncella Roja" sería el tema principal del próximo congreso internacional sobre momias.',
     icon: '🔬',
-    x: 62,
-    y: 48,
     phase: 'regreso',
+    distanceFromPrev: '~8.400 km en vuelo',
   },
   {
     id: 9,
-    name: 'Nueva York — Museo Metropolitano',
-    location: 'The Met, Manhattan',
+    name: 'Museo Metropolitano — Nueva York',
+    lat: 40.7794,
+    lng: -73.9632,
     altitude: '10 m',
     date: 'Noviembre 2008',
     description:
-      'La Doncella es exhibida en el Museo Metropolitano de Nueva York, a pesar de los acuerdos con las comunidades. Vera descubre las verdaderas intenciones del gobernador: exposiciones en París, Berlín y Japón. Se siente traicionada. Comienza a escribirle a Manuel, pidiéndole disculpas.',
+      'La Doncella fue exhibida en el Met a pesar de los acuerdos con las comunidades. Vera descubrió que el gobernador había firmado preacuerdos secretos para exposiciones con el Met de Nueva York, el Museo del Hombre de París, el Altes Museum de Berlín, y cinco ciudades japonesas. Se sintió traicionada. Comenzó a escribirle a Manuel, pidiéndole disculpas.',
     icon: '🗽',
-    x: 70,
-    y: 40,
     phase: 'regreso',
+    distanceFromPrev: '~320 km por tierra',
   },
   {
     id: 10,
-    name: 'Ezeiza — El Rescate',
-    location: 'Aeropuerto de Ezeiza, Buenos Aires',
+    name: 'Aeropuerto de Ezeiza — El Robo',
+    lat: -34.8222,
+    lng: -58.5358,
     altitude: '25 m',
     date: '2 de noviembre de 2008',
     description:
-      'Sergio retira el container de la aduana usando los papeles que Vera envió por mail. Teresa lo espera en el estacionamiento con una camioneta cerrada. El hermanastro de Vera desvía la investigación. El container refrigerado (1.56 x 1.23 m) parte rumbo a Tinogasta, esquivando los puestos de la Policia Caminera.',
+      'Sergio retiró el container de la aduana usando los papeles que Vera escaneó y envió por mail. Teresa lo esperaba en el estacionamiento con una camioneta cerrada. El hermanastro de Vera dio una descripción falsa del retirador para desviar la investigación. El container refrigerado de 1,56 por 1,23 partió rumbo a Tinogasta, esquivando los puestos de la Policía Caminera.',
     icon: '🚐',
-    x: 64,
-    y: 62,
     phase: 'retorno',
+    distanceFromPrev: '~8.400 km en vuelo',
   },
   {
     id: 11,
-    name: 'Tinogasta — Preparación',
-    location: 'Casa de Teresa, Tinogasta',
+    name: 'Casa de Teresa — Tinogasta',
+    lat: -28.0639,
+    lng: -67.5642,
     altitude: '1.500 m',
-    date: '10 de diciembre de 2008',
+    date: 'Noviembre-Diciembre 2008',
     description:
-      'La Doncella pasa una semana en un freezer en casa de Teresa, sin sus joyas ni mantos, solo su túnica de alpaca. Manuel subió solo al Pissis el 28 de octubre para cavar el sitio funerario. La madrugada del 10 de diciembre, Manuel y Teresa cargan a la Doncella en una camioneta con hielo seco y parten de noche hacia Laguna Verde.',
+      '"La Doncella Roja" estuvo exactamente una semana en un freezer, en la casa de Teresa, en Tinogasta. No tenía sus joyas, ni sus mantos lujosos, ni su tocado de plumas. Solo su túnica de lana de alpaca. La madrugada del 10 de diciembre, Manuel y Teresa cargaron a la Doncella en una camioneta 4x4 envuelta en hielo seco y gomaespuma y partieron de noche hacia Laguna Verde.',
     icon: '❄️',
-    x: 22,
-    y: 44,
     phase: 'retorno',
+    distanceFromPrev: '~1.600 km por ruta',
   },
   {
     id: 12,
-    name: 'El Retorno a la Montaña',
-    location: 'Cumbre del Volcán Pissis',
+    name: 'El Retorno — Cumbre del Pissis',
+    lat: -27.7636,
+    lng: -68.7928,
     altitude: '6.800 m',
     date: 'Diciembre 2008',
     description:
-      'Manuel y Teresa escalan solos con el fardo de 35 kg. Hacen en un día lo que se hacía en dos. En el C2, una tormenta de nieve los despierta a medianoche. Teresa quiere llorar. Manuel la abraza: "Te quiero, Teresa." Al día siguiente llegan a la cumbre. Teresa le pone su manta de lana de alpaca con franjas magentas, verdes y naranjas. Vera envió un collar de ámbar. Manuel la baja a la misma tumba. Siente que los pedazos de su corazón se unen. El círculo se cierra.',
+      'Manuel y Teresa escalaron solos con el fardo de 35 kilos a más de 6.000 metros de altura. Hicieron en un solo día lo que se hacía en dos. En el C2 una tormenta de nieve los despertó. Manuel la abrazó: "Te quiero, Teresa." Llegaron a la cumbre antes del mediodía. Teresa le puso su manta preferida de lana de alpaca con franjas magentas, verdes y naranjas. Vera quiso que le pusieran su colgante de plata con piedra de ámbar. Manuel, con sumo cuidado, la bajó a la misma tumba. "Muy adentro sintió que los pedazos de su corazón se habían unido. El círculo otra vez estaba cerrado."',
     icon: '❤️',
-    x: 46,
-    y: 6,
     phase: 'retorno',
+    distanceFromPrev: '~120 km + escalada',
   },
 ]
 
-interface Artifact {
-  id: number
+/* ─── Museum artifacts with exact text fragments ────────── */
+
+interface ArtifactItem {
+  id: string
   name: string
-  description: string
-  category: string
-  material: string
-  significance: string
   icon: string
+  momentId: string
+  shortDesc: string
+  exactQuote: string
+  novelPage: string
+  howItEnded: string
 }
 
-const artifacts: Artifact[] = [
+interface DiscoveryMoment {
+  id: string
+  title: string
+  description: string
+  icon: string
+  order: number
+}
+
+const discoveryMoments: DiscoveryMoment[] = [
   {
-    id: 1,
-    name: 'Manto rojo de vicuña',
-    description:
-      'Manto externo del fardo funerario, de fina lana de vicuña de color rojo intenso. Era la capa más visible que protegía el cuerpo de la Doncella.',
-    category: 'Textil',
-    material: 'Lana de vicuña',
-    significance:
-      'Los tejidos incas registraban información. Ni el animal, ni la lana, ni la trama eran aleatorios: todo era un mensaje a los dioses.',
-    icon: '🧣',
+    id: 'cumbre-senial',
+    title: 'La primera señal en la cumbre',
+    description: 'Gabriel excava su cuadrícula y grita el nombre de Vera...',
+    icon: '🏔️',
+    order: 1,
   },
   {
-    id: 2,
-    name: 'Manto de plumas amarillas',
-    description:
-      'Segundo manto, bordado con plumas amarillas probablemente de papagayo o guacamayo. Un trabajo de un año entero o más, cosido por Sarac (la Doncella) en el Acllahuasi.',
-    category: 'Textil',
-    material: 'Plumas de guacamayo sobre tela',
-    significance:
-      'Las plumas venían de la selva profunda. Los guacamayos eran alimentados con calabazas para intensificar los colores de sus plumas.',
-    icon: '🪶',
+    id: 'fardo-desenvuelto',
+    title: 'Desenvuelven el fardo',
+    description: 'Quitan los mantos y ven el cuerpo por primera vez...',
+    icon: '🔴',
+    order: 2,
   },
   {
-    id: 3,
-    name: 'Manto de alpaca con diseños',
-    description:
-      'El manto más fino, cubriendo directamente la momia, con diseños que señalaban su alto rango social. En sus pliegues se encontró una laminilla de oro enrollada.',
-    category: 'Textil',
-    material: 'Lana de alpaca',
-    significance:
-      'Los colores y diseños eran parte del mensaje a los dioses. La elección de alpaca indica la más fina y abrigada de las lanas.',
-    icon: '🎨',
-  },
-  {
-    id: 4,
-    name: 'Manos teñidas de rojo',
-    description:
-      'Las manos de la Doncella estaban completamente teñidas de rojo, con las puntas de los dedos apoyadas sobre la frente, como cubriéndose la cara, aunque dejaba espacio entre las manos y el rostro.',
-    category: 'Cuerpo',
-    material: 'Tinte de achiote y cochinilla',
-    significance:
-      'El rojo proviene del achiote y la cochinilla. En el estómago se encontraron restos de achiote, el mismo vegetal usado para la tintura. El rojo simboliza la sangre y la vida.',
-    icon: '🖐️',
-  },
-  {
-    id: 5,
-    name: 'Tocado de plumas azules',
-    description:
-      'Un impresionante tocado en forma de casco, con brillantes plumas azules. Fue cosido por Urpi, la mejor amiga de Sarac en el Acllahuasi.',
-    category: 'Vestimenta',
-    material: 'Plumas de guacamayo azul',
-    significance:
-      'El azul de estas plumas no era ni el del mar ni el del cielo: tenía reflejos únicos. Urpi lo bordó especialmente para la ceremonia de la Doncella.',
-    icon: '👑',
-  },
-  {
-    id: 6,
-    name: 'Tupus de plata',
-    description:
-      'Dos prendedores o alfileres de plata que ajustaban el vestido de la Doncella a la altura del pecho.',
-    category: 'Joyería',
-    material: 'Plata',
-    significance:
-      'Los tupus eran símbolo de status y eran usados por las mujeres de alto rango para sujetar sus vestidos y mantos.',
-    icon: '📌',
-  },
-  {
-    id: 7,
-    name: 'Pulseras de oro',
-    description:
-      'Dos anchas pulseras de oro en los antebrazos de la Doncella, indicando su alta posición social.',
-    category: 'Joyería',
-    material: 'Oro',
-    significance:
-      'El oro representaba al dios Sol (Inti). Las pulseras en los antebrazos señalaban que la Doncella era una Aclla del Sol, elegida para el sacrificio.',
-    icon: '💍',
-  },
-  {
-    id: 8,
-    name: 'Collar de ámbar',
-    description:
-      'Un cordón con una piedra de ámbar del tamaño de una almendra en el cuello. Le fue puesto por su madre al nacer para que nada malo le sucediera.',
-    category: 'Joyería',
-    material: 'Ámbar',
-    significance:
-      'El ámbar era una protección. Su madre se lo colocó cuando nació. Cuando la devuelven a la montaña, Vera le pone un collar similar de plata y ámbar.',
-    icon: '📿',
-  },
-  {
-    id: 9,
-    name: 'Sapo de oro (ajuar)',
-    description:
-      'Figura de oro finamente tallada del tamaño de un puño. Era hueca y en su interior contenía un diminuto quipu: un hilo de lana con tres nudos.',
-    category: 'Orfebrería',
-    material: 'Oro',
-    significance:
-      'El sapo representa a la Pachamama, la madre tierra. Símbolo de fertilidad y vida. Hiberna durante largo tiempo y despierta en la época propicia. El quipu interior lleva un mensaje secreto a los dioses.',
-    icon: '🐸',
-  },
-  {
-    id: 10,
-    name: 'Sapo de oro miniatura (estómago)',
-    description:
-      'Una réplica exacta en miniatura del sapo del ajuar, encontrada en el fondo del estómago de la Doncella. También era hueca y contenía un quipu idéntico con tres nudos.',
-    category: 'Orfebrería',
-    material: 'Oro',
-    significance:
-      'La Doncella debió tragarlo la última noche antes del sacrificio. Era el guía para su viaje al otro mundo: se dormiría en este mundo para despertar en el mundo divino.',
-    icon: '🐸',
-  },
-  {
-    id: 11,
-    name: 'Estatuilla de spondylus rojo',
-    description:
-      'Estatuilla de concha de spondylus de color rojo intenso, casi encandilante. Gabriel la encontró primero, lo que llevó al descubrimiento del enterratorio.',
-    category: 'Ofrenda',
-    material: 'Concha de spondylus',
-    significance:
-      'El spondylus rojo estaba presente en todos los enterratorios incas. Era considerado más valioso que el oro. Provenía de las profundidades del mar.',
-    icon: '🐚',
-  },
-  {
-    id: 12,
-    name: '20 estatuillas antropomorfas',
-    description:
-      'Veinte figuras humanas de plata, oro y spondylus, ricamente vestidas con textiles y plumas, que acompañaban al fardo funerario.',
-    category: 'Ofrenda',
-    material: 'Plata, oro, spondylus',
-    significance:
-      'Representaban a los acompañantes de la Doncella en su viaje al otro mundo. Cada material tenía un significado: el oro al Sol, la plata a la Luna, el spondylus al mar.',
-    icon: '🗿',
-  },
-  {
-    id: 13,
-    name: '30 figuras de llamas y vicuñas',
-    description:
-      'Treinta figuras de camélidos de diferentes tamaños, que formaban parte del ajuar funerario.',
-    category: 'Ofrenda',
-    material: 'Metal y otros',
-    significance:
-      'Las llamas y vicuñas eran esenciales para la vida andina: transporte, lana, alimento. Estas figuras las acompañarían en el más allá.',
-    icon: '🦙',
-  },
-  {
-    id: 14,
-    name: 'Faja de colores con cordones',
-    description:
-      'Una faja de colores en la cadera, de la que se desprendían dos largos cordones de fibras vegetales terminados en borlas: una de lana y otra de cabello humano.',
-    category: 'Vestimenta',
-    material: 'Fibras vegetales, lana, cabello humano',
-    significance:
-      'Los cordones servían generalmente para atar animales. Las estatuillas de animales del ajuar también tenían cordelitos similares.',
-    icon: '🪢',
-  },
-  {
-    id: 15,
-    name: 'Mocasines de cuero',
-    description:
-      'Mocasines de cuero terminados en un fino bordado en lana, calzados en los pies de la Doncella.',
-    category: 'Vestimenta',
-    material: 'Cuero y lana',
-    significance:
-      'Dos pares de sandalias adicionales fueron encontrados para cambiarse a lo largo de su prolongado viaje al otro mundo.',
-    icon: '👢',
-  },
-  {
-    id: 16,
-    name: 'Laminilla de oro enrollada',
-    description:
-      'Una fina lámina de oro enrollada, encontrada entre los pliegues del manto de alpaca. Se cree que era una ofrenda para introducirse en el más allá.',
-    category: 'Ofrenda',
-    material: 'Oro',
-    significance:
-      'Las ofrendas de oro eran mensajes a los dioses. Esta lámina acompañaría a la Doncella en su tránsito al mundo divino.',
-    icon: '✨',
-  },
-  {
-    id: 17,
-    name: 'Chuspas y vasijas',
-    description:
-      'Bolsitas ceremoniales (chuspas) para guardar hojas de coca. Vasijas con semillas, porotos cocidos y otros materiales orgánicos.',
-    category: 'Ceremonial',
-    material: 'Textil y cerámica',
-    significance:
-      'La coca era sagrada y se consumía en ceremonias. Las semillas —de calabaza, maíz y porotos— estaban destinadas a germinar en el otro mundo. 500 años después, fueron sembradas y brotaron.',
-    icon: '🏺',
-  },
-  {
-    id: 18,
-    name: 'Dos uncus blancos',
-    description:
-      'Dos túnicas blancas (uncus), prolijamente dobladas como parte del ajuar. Eran prendas de vestir para el más allá.',
-    category: 'Textil',
-    material: 'Lana de alpaca blanca',
-    significance:
-      'El blanco representaba la pureza y lo sagrado. Dos túnicas para el largo viaje: una para este mundo y otra para el mundo divino.',
+    id: 'vestimenta-doncella',
+    title: 'La vestimenta de la Doncella',
+    description: 'En los laboratorios del MAAM estudian cada prenda...',
     icon: '👘',
+    order: 3,
   },
   {
-    id: 19,
-    name: 'Cabello trenzado',
-    description:
-      'La Doncella tenía el cabello completamente trenzado, un rasgo que contribuyó a su extraordinario estado de conservación.',
-    category: 'Cuerpo',
-    material: 'Cabello humano',
-    significance:
-      'Las trenzas eran parte de la preparación ceremonial. El Sacerdote del Sol trenzó su cabello durante la última noche antes del sacrificio.',
-    icon: '💇',
+    id: 'ajuar-completo',
+    title: 'El ajuar funerario — 80 piezas',
+    description: 'Dos días más tardan en desenterrar y fotografiar el ajuar completo...',
+    icon: '🏺',
+    order: 4,
   },
   {
-    id: 20,
-    name: '5 piezas textiles ceremoniales',
-    description:
-      'Cinco piezas textiles adicionales, presumiblemente regalos para los dioses, que acompañaban el ajuar funerario.',
-    category: 'Textil',
-    material: 'Diversas lanas',
-    significance:
-      'Cada pieza textil era un regalo precioso para los dioses. En los ritos de sacrificio, los tejidos se transformaban en un elemento esencial.',
-    icon: '🧵',
+    id: 'sapo-secreto',
+    title: 'El secreto del sapo de oro',
+    description: 'Los estudios en Maryland revelan lo que esconde la Doncella...',
+    icon: '🐸',
+    order: 5,
+  },
+  {
+    id: 'sacrificio-doncella',
+    title: 'Cómo llegó al entierro',
+    description: 'La voz de Sarac narra la ceremonia y el sacrificio...',
+    icon: '🌙',
+    order: 6,
   },
 ]
 
-const categories = ['Todos', 'Textil', 'Joyería', 'Orfebrería', 'Ofrenda', 'Vestimenta', 'Ceremonial', 'Cuerpo']
+const artifactItems: ArtifactItem[] = [
+  {
+    id: 'spondylus',
+    name: 'Estatuilla de spondylus rojo',
+    icon: '🐚',
+    momentId: 'cumbre-senial',
+    shortDesc: 'Concha roja brillante que guía al enterratorio',
+    exactQuote:
+      'Una estatuilla de spondylus rojo. Tan rojo que casi encandilaba. Una estatuilla igual a la que ella guardaba en Catamarca.',
+    novelPage: 'p.40',
+    howItEnded:
+      'El spondylus estaba presente en todos los enterratorios incas. Era considerado más valioso que el oro y venía de las profundidades del mar. La estatuilla fue lo que el andinista polaco encontró primero y cuyas coordenadas llevaron a Vera directo al enterratorio.',
+  },
+  {
+    id: 'manto-rojo',
+    name: 'Manto rojo de vicuña',
+    icon: '🧣',
+    momentId: 'fardo-desenvuelto',
+    shortDesc: 'La capa externa del fardo funerario',
+    exactQuote:
+      'El fardo estaba envuelto por numerosas piezas textiles. La más externa, un manto rojo, de fina lana de vicuña.',
+    novelPage: 'p.48',
+    howItEnded:
+      'Los tejidos nunca estaban hechos al azar. Los incas registraban en sus telas toda clase de información. Ni el animal escogido, ni el tipo de lana, ni la trama, ni el hilado eran aleatorios. La elección de los colores y los diseños eran parte del mensaje que enviaban a sus dioses.',
+  },
+  {
+    id: 'manos-rojas',
+    name: 'Manos teñidas de rojo',
+    icon: '🖐️',
+    momentId: 'fardo-desenvuelto',
+    shortDesc: 'Las manos cubriendo la cara con tinte rojo',
+    exactQuote:
+      'Lo primero que saltaba a la vista eran sus manos, completamente teñidas de rojo. Las puntas de los dedos se apoyaban sobre la frente, como si estuviera cubriéndose la cara. Sin embargo, había bastante espacio entre las manos y la cara.',
+    novelPage: 'p.48',
+    howItEnded:
+      'En su estómago se encontraron restos de achiote, el mismo vegetal que se utilizó para la tintura de las manos. Sarac narra cómo preparaba el tinte: "Urpi había puesto los insectos en un recipiente de madera y los había aplastado con una pequeña piedra redonda hasta formar una pasta." La cochinilla y el achiote daban el rojo sangre.',
+  },
+  {
+    id: 'manto-plumas',
+    name: 'Manto de plumas amarillas',
+    icon: '🪶',
+    momentId: 'fardo-desenvuelto',
+    shortDesc: 'Bordado con plumas de papagayo',
+    exactQuote:
+      'Debajo de él, otro manto bordado con plumas amarillas, probablemente de papagayo.',
+    novelPage: 'p.48',
+    howItEnded:
+      'Sarac lo bordó ella misma: "Yo hacía varios meses que estaba bordando un gran manto con plumas amarillas. Era un trabajo lento. Un trabajo de un año entero. O tal vez más." Las plumas venían de guacamayos traídos de la selva. Las acllas les daban calabazas para que las plumas tuvieran colores más intensos.',
+  },
+  {
+    id: 'tocado-plumas',
+    name: 'Tocado de plumas azules',
+    icon: '👑',
+    momentId: 'vestimenta-doncella',
+    shortDesc: 'Casco de plumas azules brillantes',
+    exactQuote:
+      'La Doncella tenía el cabello completamente trenzado y un impresionante tocado en forma de casco de brillantes plumas azules.',
+    novelPage: 'p.51',
+    howItEnded:
+      'Fue cosido por Urpi, la mejor amiga de Sarac: "Urpi trabajaba en un impresionante tocado de plumas azules. Ni el azul del mar ni el azul del cielo tenían esos reflejos." Sarac lo vio antes del sacrificio: "He visto el tocado que me han de poner. Es el de plumas azules de guacamayo. El que cosió Urpi."',
+  },
+  {
+    id: 'pulseras-oro',
+    name: 'Pulseras de oro',
+    icon: '💍',
+    momentId: 'vestimenta-doncella',
+    shortDesc: 'Dos anchas pulseras en los antebrazos',
+    exactQuote:
+      'En los antebrazos, dos anchas pulseras de oro, y en el cuello, un cordón con una piedra de ámbar del tamaño de una almendra.',
+    novelPage: 'p.51',
+    howItEnded:
+      'El oro representaba al dios Sol (Inti). Las pulseras señalaban que era una Aclla del Sol, elegida para el sacrificio capacocha. El oro no era un metal precioso para los incas como lo es para nosotros: era el sudor del sol, sagrado.',
+  },
+  {
+    id: 'collar-ambar',
+    name: 'Collar de ámbar',
+    icon: '📿',
+    momentId: 'vestimenta-doncella',
+    shortDesc: 'Piedra de ámbar en el cuello',
+    exactQuote:
+      'En el cuello, un cordón con una piedra de ámbar del tamaño de una almendra.',
+    novelPage: 'p.51',
+    howItEnded:
+      'Su madre se lo puso al nacer. Sarac narra: "Mientras acariciaba el collar de ámbar que mi madre me había puesto para que nada malo me sucediera, el cuy seguía quieto." Cuando la devuelven a la montaña, Vera le pone un collar similar: "Vera quiso que le pusieran su colgante de plata, una cadena con una piedra de ámbar."',
+  },
+  {
+    id: 'sapo-oro',
+    name: 'Sapo de oro (ajuar)',
+    icon: '🐸',
+    momentId: 'ajuar-completo',
+    shortDesc: 'Figura hueca del tamaño de un puño',
+    exactQuote:
+      'Entre las figuras de animales se destacaba la de un sapo de oro finamente tallado, del tamaño de un puño.',
+    novelPage: 'p.52',
+    howItEnded:
+      'El profesor González descubre su significado: "El sapo era la representación de la Pachamama, la madre tierra. Era símbolo de la fertilidad y de la vida. El sapo hibernaba durante largo tiempo, para salir luego en la época propicia." Dentro del sapo había un quipu con tres nudos: un mensaje secreto a los dioses.',
+  },
+  {
+    id: 'estatuillas',
+    name: '20 estatuillas antropomorfas',
+    icon: '🗿',
+    momentId: 'ajuar-completo',
+    shortDesc: 'Figuras de plata, oro y spondylus',
+    exactQuote:
+      'Había veinte estatuillas antropomorfas, de plata, oro y spondylus, ricamente vestidas con textiles y plumas.',
+    novelPage: 'p.51',
+    howItEnded:
+      'Las estatuillas representaban a los acompañantes de la Doncella en su viaje al otro mundo. Cada material tenía un significado: el oro al Sol, la plata a la Luna, el spondylus al mar. Iban ricamente vestidas porque la Doncella no viajaba sola al mundo divino.',
+  },
+  {
+    id: 'llamas-vicunas',
+    name: '30 figuras de llamas y vicuñas',
+    icon: '🦙',
+    momentId: 'ajuar-completo',
+    shortDesc: 'Figuras de camélidos de diferentes tamaños',
+    exactQuote:
+      'Otras treinta figuras de llamas y vicuñas de diferentes tamaños.',
+    novelPage: 'p.51-52',
+    howItEnded:
+      'Las llamas eran esenciales para el mundo andino. En la ceremonia: "Doscientos cordeles de colores atados a los doscientos cogotes blancos que serían cortados para mostrar la pena que sentía el imperio por la muerte del Inka." Las figuras de llamas acompañarían a la Doncella en el más allá.',
+  },
+  {
+    id: 'sapo-miniatura',
+    name: 'Sapo de oro miniatura (estómago)',
+    icon: '🐸',
+    momentId: 'sapo-secreto',
+    shortDesc: 'Réplica en miniatura hallada en el estómago',
+    exactQuote:
+      'En el fondo de su estómago aparecía un cuerpo extraño. Una figura de metal que los primeros estudios mostraron como una réplica exacta, en miniatura, del sapo de oro hallado entre las piezas del ajuar.',
+    novelPage: 'p.77',
+    howItEnded:
+      'La Doncella debió tragarlo la última noche. El Sacerdote del Sol se lo dio: "Me ha mostrado, el Sacerdote, el hamp\'atu de oro que tiene en su vientre el mensaje para los dioses. En la última noche antes de quedarme sola, después de comer achiote y de tomar la chicha sagrada, tendré que tragarlo." Dentro tenía un quipu idéntico al del sapo grande: tres nudos.',
+  },
+  {
+    id: 'quipu-nudos',
+    name: 'Quipu con tres nudos',
+    icon: '🪢',
+    momentId: 'sapo-secreto',
+    shortDesc: 'El mensaje secreto dentro del sapo',
+    exactQuote:
+      'Habían descubierto que adentro de la figura del sapo había un elemento orgánico. Lo más probable era que se tratara de una pieza de lana. Un quipu. Una sola cuerda de lana con tres nudos. Era exactamente igual al quipu de su abuela Lucero. Tres nudos. Dos de ellos superpuestos y otro en la mitad de la cuerda restante.',
+    novelPage: 'p.80',
+    howItEnded:
+      'El quipu era el mensaje secreto que la Doncella llevaba a los dioses. El profesor González sabía que era imposible de descifrar. Pero Manuel reconoció el quipu: era idéntico al de su abuela Lucero, la chamana. La abuela le había dicho: "Ya sabrá qué hacer. Y cuando la Pacha reúna sus pedazos, lo sabrá en su corazón, propiamente."',
+  },
+  {
+    id: 'manto-alpaca',
+    name: 'Manto de alpaca con diseños',
+    icon: '🎨',
+    momentId: 'vestimenta-doncella',
+    shortDesc: 'Manto fino que señalaba alto rango',
+    exactQuote:
+      'Debajo del manto de lana roja y del manto de plumas amarillas, la Doncella estaba envuelta en uno más fino, con diseños que señalaban su alto rango social. En medio de los pliegues de este último se encontró una fina laminilla de oro enrollada.',
+    novelPage: 'p.51',
+    howItEnded:
+      'Los colores y diseños del manto indicaban que Sarac era una Aclla del Sol, de la clase más alta. Ella misma tejió su lliclla: "La tejí yo misma con franjas magentas, verdes y naranjas." Teresa le puso una manta similar al devolverla: "Su manta preferida, una que ella misma había tejido en lana de alpaca con franjas de colores, magentas, verdes y naranjas."',
+  },
+  {
+    id: 'tupus-plata',
+    name: 'Tupus de plata',
+    icon: '📌',
+    momentId: 'vestimenta-doncella',
+    shortDesc: 'Dos prendedores que ajustaban el vestido',
+    exactQuote:
+      'Dos tupus, o prendedores de plata, ajustaban su vestido y en la cadera tenía una faja de colores, de la que se desprendían dos largos cordones de fibras vegetales que terminaban en sendas borlas: una de lana y la otra, confeccionada con cabello humano.',
+    novelPage: 'p.51',
+    howItEnded:
+      'Los tupus eran símbolo de status de las mujeres de alto rango. Los cordones con borlas servían para atar animales, y las estatuillas del ajuar también tenían cordelitos similares. La borla de cabello humano era particularmente significativa: el cabello tenía poder sagrado.',
+  },
+  {
+    id: 'moccasins',
+    name: 'Mocasines de cuero',
+    icon: '👢',
+    momentId: 'vestimenta-doncella',
+    shortDesc: 'Fino bordado en lana sobre cuero',
+    exactQuote:
+      'En los pies llevaba mocasines de cuero terminados en un fino bordado en lana.',
+    novelPage: 'p.51',
+    howItEnded:
+      'Junto con los mocasines encontraron "dos pares de sandalias para cambiarse a lo largo de su prolongado viaje." Los incas creían que el viaje al otro mundo era largo, por eso la Doncella necesitaba calzado de repuesto.',
+  },
+  {
+    id: 'chuspas-vasijas',
+    name: 'Chuspas y vasijas con semillas',
+    icon: '🏺',
+    momentId: 'ajuar-completo',
+    shortDesc: 'Bolsitas de coca y vasijas con alimentos',
+    exactQuote:
+      'Chuspas, bolsitas ceremoniales en las que se guardaban las hojas de coca. Vasijas con semillas, porotos cocidos y otros materiales orgánicos.',
+    novelPage: 'p.52',
+    howItEnded:
+      'Las semillas eran para el otro mundo, pero brotaron en este. Manuel pidió las semillas para su Museo del Hombre: "Semillas de calabaza, maíz, variedades de porotos y otras." Cuando se inauguró el MAMCA, "todas, absolutamente todas las semillas habían echado sus brotes después de haber hibernado durante quinientos años."',
+  },
+  {
+    id: 'cabello-trenzado',
+    name: 'Cabello completamente trenzado',
+    icon: '💇',
+    momentId: 'fardo-desenvuelto',
+    shortDesc: 'Trenzas ceremoniales intactas',
+    exactQuote:
+      'La Doncella tenía el cabello completamente trenzado y un impresionante tocado en forma de casco de brillantes plumas azules.',
+    novelPage: 'p.51',
+    howItEnded:
+      'El Sacerdote del Sol trenzó su cabello la última noche: "Después de que pintaran mi cuerpo, después de que comiera el achiote, de que trenzaran mi cabello." Las trenzas eran parte de la preparación sagrada antes del sacrificio.',
+  },
+  {
+    id: 'doncella-sacrificio',
+    name: 'La Doncella elegida — Sarac',
+    icon: '🌙',
+    momentId: 'sacrificio-doncella',
+    shortDesc: 'La voz de la Doncella narra su elección',
+    exactQuote:
+      'La Mamacona me buscó. El Sacerdote del Sol quería estar a solas conmigo. Las maripositas negras me arrancaron el ánima por la boca y me desmayé. Yo era la elegida.',
+    novelPage: 'p.103',
+    howItEnded:
+      'Sarac narra su camino al sacrificio: "Me darían coca y chicha y me iría durmiendo dulcemente. Sin dolor. En el final sí estaría sola, me dijo el Sacerdote. Envuelta en mis mantos. Rodeada de ofrendas. Ya sería sagrada. La mensajera sagrada. Yo sola podría cruzar al otro lado, donde los dioses me estarían esperando."',
+  },
+]
 
-/* ─── COMPONENTS ──────────────────────────────────────────── */
+/* ─── Decision quotes — extracted verbatim ───────────────── */
+
+const museumQuotes = [
+  {
+    id: 'v1',
+    speaker: 'Vera Larsen',
+    quote:
+      'No estaba a favor de la exhibición de las momias como si fueran objetos. Una momia mezclada con vasijas de cerámica. No. "La Doncella Roja", las momias andinas, merecen respeto.',
+    page: 'p.72',
+  },
+  {
+    id: 'v2',
+    speaker: 'Vera Larsen',
+    quote:
+      'Exhibir "La Doncella Roja", si se lo hacía con respeto, era mostrar todo su mundo, sus creencias, sus valores. Eso, a su juicio, era una forma de defender esa cultura. Estaba más a la vista. Más presente. Más viva.',
+    page: 'p.72',
+  },
+  {
+    id: 'v3',
+    speaker: 'Vera Larsen',
+    quote:
+      'Los incas tenían una sentencia: "Sembrar muertos para cosechar vivos". Creo que "La Doncella Roja" será quien coseche más vida para su cultura.',
+    page: 'p.73',
+  },
+  {
+    id: 'v4',
+    speaker: 'Vera Larsen',
+    quote:
+      'No era posible entender lo que no se conocía. Menos aún se podía cuidar ni amar lo que no se conocía.',
+    page: 'p.72',
+  },
+  {
+    id: 'v5',
+    speaker: 'Narración',
+    quote:
+      'Había gente que le había contado lo conmovida que se había sentido al entrar al MAAM. Decían haber tenido un verdadero privilegio al poder observar las momias de esos niños. Pero no por observar una momia como un objeto exótico. Entrar al MAAM era entrar a un mundo ajeno. Un mundo sagrado y que desconocían por completo.',
+    page: 'p.72',
+  },
+  {
+    id: 'v6',
+    speaker: 'Manuel Acevedo',
+    quote:
+      'Sacar la momia había sido protegerla. Eso era lo que Teresa no quería entender. Con el dato del andinista polaco dando vueltas, el huaqueo del sitio era cuestión de tiempo y la momia se perdería para siempre.',
+    page: 'p.86',
+  },
+]
+
+const mountainQuotes = [
+  {
+    id: 'm1',
+    speaker: 'Sergio Vargas (La Voz de los Andes)',
+    quote:
+      'Para los andinos la montaña es Dios. Muchas veces nuestra formación occidental nos impide comprender este concepto en toda su amplitud. La montaña, el sol, el rayo, la luna no representan a los dioses, SON los dioses.',
+    page: 'p.69',
+  },
+  {
+    id: 'm2',
+    speaker: 'Narración',
+    quote:
+      'Los integrantes de las comunidades andinas llamaban a la momia "nuestra niña". Para ellos, sus niños no estaban muertos; dormían allá, en lo más alto, un sueño sagrado, y al arrancarlos de la montaña, los estaban matando.',
+    page: 'p.56',
+  },
+  {
+    id: 'm3',
+    speaker: 'Narración',
+    quote:
+      'El sueño de la niña en las cumbres heladas aseguraba un equilibrio con la naturaleza. Una armonía. Ella estaba allí para eso. Si la arrancaban de la montaña, el equilibrio se rompería en mil pedazos.',
+    page: 'p.56',
+  },
+  {
+    id: 'm4',
+    speaker: 'Teresa (chat con Sergio)',
+    quote:
+      '¡EN CATAMARCA NO, PERO EN ESTADOS UNIDOS SÍ! ¡Y DESPUÉS EUROPA! QUIÉN TE DICE, ¡JA!',
+    page: 'p.74',
+  },
+  {
+    id: 'm5',
+    speaker: 'Ley 25.517 (citada por Teresa)',
+    quote:
+      'Los restos mortales de aborígenes, cualquiera fuere su característica étnica, que formen parte de museos y/o colecciones públicas o privadas, deberán ser puestos a disposición de los pueblos indígenas y/o comunidades de pertenencia que lo reclamen.',
+    page: 'p.79',
+  },
+  {
+    id: 'm6',
+    speaker: 'Abuela Lucero (en sueños de Manuel)',
+    quote:
+      'No sirve de nada un corazón descuartizado. Sirve un corazón sano y entero. No se preocupe, mi queridito, mi Sapito, ya sabrá qué hacer. Y cuando la Pacha reúna sus pedazos, lo sabrá en su corazón, propiamente.',
+    page: 'p.81',
+  },
+]
+
+/* ═══════════════════════════════════════════════════════════
+   MAP TAB — Real map with Leaflet
+   ═══════════════════════════════════════════════════════════ */
 
 function MapTab() {
+  const [MapComponent, setMapComponent] = useState<React.ComponentType | null>(null)
   const [selectedStop, setSelectedStop] = useState<JourneyStop | null>(null)
   const [activePhase, setActivePhase] = useState<string>('all')
+
+  useEffect(() => {
+    import('./LeafletMap').then((mod) => {
+      setMapComponent(() => mod.default)
+    })
+  }, [])
 
   const phases = [
     { key: 'all', label: 'Todo el recorrido', color: '#92400e' },
     { key: 'ida', label: 'La subida', color: '#b45309' },
     { key: 'descubrimiento', label: 'El descubrimiento', color: '#dc2626' },
-    { key: 'regreso', label: 'El viaje al exterior', color: '#7c3aed' },
-    { key: 'retorno', label: 'El retorno a la montaña', color: '#059669' },
+    { key: 'regreso', label: 'Viaje al exterior', color: '#7c3aed' },
+    { key: 'retorno', label: 'El retorno', color: '#059669' },
   ]
 
   const filteredStops =
     activePhase === 'all' ? journeyStops : journeyStops.filter((s) => s.phase === activePhase)
 
-  const phaseColors: Record<string, string> = {
-    ida: '#b45309',
-    descubrimiento: '#dc2626',
-    regreso: '#7c3aed',
-    retorno: '#059669',
-  }
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Phase filters */}
       <div className="flex flex-wrap gap-2 justify-center">
         {phases.map((p) => (
@@ -446,9 +592,9 @@ function MapTab() {
               setActivePhase(p.key)
               setSelectedStop(null)
             }}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
               activePhase === p.key
-                ? 'text-white shadow-lg scale-105'
+                ? 'text-white shadow-lg'
                 : 'bg-white/80 text-stone-600 hover:bg-white border border-stone-200'
             }`}
             style={activePhase === p.key ? { backgroundColor: p.color } : undefined}
@@ -458,263 +604,298 @@ function MapTab() {
         ))}
       </div>
 
-      {/* SVG Map */}
-      <div className="relative bg-gradient-to-b from-sky-100 via-amber-50 to-green-100 rounded-2xl overflow-hidden shadow-inner border border-stone-200">
-        <svg viewBox="0 0 100 70" className="w-full" style={{ minHeight: '400px' }}>
-          {/* Background mountains */}
-          <defs>
-            <linearGradient id="mountainGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#94a3b8" stopOpacity="0.3" />
-              <stop offset="100%" stopColor="#64748b" stopOpacity="0.1" />
-            </linearGradient>
-            <linearGradient id="pissisGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#fbbf24" />
-              <stop offset="30%" stopColor="#92400e" />
-              <stop offset="100%" stopColor="#78350f" />
-            </linearGradient>
-          </defs>
-
-          {/* Mountain silhouettes */}
-          <path d="M0,55 L10,35 L18,45 L28,20 L38,40 L48,5 L58,38 L68,25 L78,42 L88,30 L100,50 L100,70 L0,70Z" fill="url(#mountainGrad)" />
-          
-          {/* Pissis volcano peak */}
-          <path d="M40,5 L46,0 L52,5 L50,12 L42,12Z" fill="url(#pissisGrad)" opacity="0.6" />
-          <text x="46" y="-1" textAnchor="middle" fontSize="2.5" fill="#92400e" fontWeight="bold">Pissis 6.795m</text>
-
-          {/* Route lines connecting stops */}
-          {filteredStops.length > 1 &&
-            filteredStops.slice(0, -1).map((stop, i) => {
-              const next = filteredStops[i + 1]
-              return (
-                <line
-                  key={`line-${stop.id}-${next.id}`}
-                  x1={stop.x}
-                  y1={stop.y}
-                  x2={next.x}
-                  y2={next.y}
-                  stroke={phaseColors[stop.phase] || '#92400e'}
-                  strokeWidth="0.5"
-                  strokeDasharray="2,1"
-                  opacity="0.6"
-                />
-              )
-            })}
-
-          {/* Stop markers */}
-          {filteredStops.map((stop) => (
-            <g
-              key={stop.id}
-              onClick={() => setSelectedStop(stop)}
-              className="cursor-pointer"
-            >
-              {/* Glow effect */}
-              <circle
-                cx={stop.x}
-                cy={stop.y}
-                r={selectedStop?.id === stop.id ? '4' : '2.5'}
-                fill={phaseColors[stop.phase] || '#92400e'}
-                opacity={selectedStop?.id === stop.id ? '0.3' : '0.15'}
-              />
-              {/* Main dot */}
-              <circle
-                cx={stop.x}
-                cy={stop.y}
-                r={selectedStop?.id === stop.id ? '2.5' : '1.8'}
-                fill={phaseColors[stop.phase] || '#92400e'}
-                stroke="white"
-                strokeWidth="0.4"
-              />
-              {/* Label */}
-              <text
-                x={stop.x}
-                y={stop.y - 3}
-                textAnchor="middle"
-                fontSize="2.2"
-                fill="#44403c"
-                fontWeight={selectedStop?.id === stop.id ? 'bold' : 'normal'}
-              >
-                {stop.icon} {stop.name}
-              </text>
-            </g>
-          ))}
-
-          {/* Legend */}
-          <g transform="translate(2, 58)">
-            {phases.slice(1).map((p, i) => (
-              <g key={p.key} transform={`translate(${i * 22}, 0)`}>
-                <rect x="0" y="0" width="2" height="2" rx="0.5" fill={p.color} />
-                <text x="3" y="1.5" fontSize="2" fill="#57534e">{p.label}</text>
-              </g>
-            ))}
-          </g>
-        </svg>
+      {/* Map container */}
+      <div className="rounded-2xl overflow-hidden shadow-lg border border-stone-200" style={{ height: '500px' }}>
+        {MapComponent ? (
+          <MapComponent
+            stops={filteredStops}
+            selectedStop={selectedStop}
+            onSelectStop={setSelectedStop}
+            activePhase={activePhase}
+          />
+        ) : (
+          <div className="h-full flex items-center justify-center bg-stone-100">
+            <div className="text-stone-400 flex items-center gap-2">
+              <span className="animate-spin">⏳</span> Cargando mapa...
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Selected stop detail */}
       {selectedStop && (
-        <div
-          className="rounded-2xl p-6 shadow-lg border-2 transition-all animate-in fade-in slide-in-from-bottom-4"
-          style={{ borderColor: phaseColors[selectedStop.phase] || '#92400e' }}
-        >
-          <div className="flex items-start gap-4">
-            <span className="text-4xl">{selectedStop.icon}</span>
+        <div className="rounded-2xl p-5 shadow-lg border-2 border-amber-600 bg-white animate-in fade-in slide-in-from-bottom-4">
+          <div className="flex items-start gap-3">
+            <span className="text-3xl">{selectedStop.icon}</span>
             <div className="flex-1">
-              <div className="flex items-center gap-2 mb-1">
-                <h3 className="text-xl font-bold text-stone-800">{selectedStop.name}</h3>
-                <span
-                  className="text-xs px-2 py-0.5 rounded-full text-white"
-                  style={{ backgroundColor: phaseColors[selectedStop.phase] }}
-                >
-                  {selectedStop.phase === 'ida' && 'Subida'}
-                  {selectedStop.phase === 'descubrimiento' && 'Descubrimiento'}
-                  {selectedStop.phase === 'regreso' && 'Viaje al exterior'}
-                  {selectedStop.phase === 'retorno' && 'Retorno'}
-                </span>
-              </div>
-              <p className="text-sm text-stone-500 mb-3">
-                {selectedStop.location} &middot; {selectedStop.altitude} &middot; {selectedStop.date}
+              <h3 className="text-lg font-bold text-stone-800">{selectedStop.name}</h3>
+              <p className="text-sm text-stone-500 mb-2">
+                {selectedStop.altitude} &middot; {selectedStop.date}
+                {selectedStop.distanceFromPrev && (
+                  <> &middot; 📏 {selectedStop.distanceFromPrev}</>
+                )}
               </p>
-              <p className="text-stone-700 leading-relaxed">{selectedStop.description}</p>
+              <p className="text-stone-700 text-sm leading-relaxed">{selectedStop.description}</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Timeline */}
-      <div className="space-y-3">
-        <h3 className="text-lg font-semibold text-stone-700 text-center">Línea de tiempo del recorrido</h3>
-        <div className="max-h-96 overflow-y-auto pr-2 space-y-2">
-          {filteredStops.map((stop) => (
+      {/* Timeline list */}
+      <div className="space-y-2 max-h-80 overflow-y-auto">
+        {filteredStops.map((stop, idx) => (
+          <button
+            key={stop.id}
+            onClick={() => setSelectedStop(stop)}
+            className={`w-full text-left p-3 rounded-xl transition-all flex items-center gap-3 ${
+              selectedStop?.id === stop.id
+                ? 'bg-white shadow-md border-2 border-amber-500'
+                : 'bg-white/60 hover:bg-white/90 border border-stone-100'
+            }`}
+          >
+            <span className="text-xl">{stop.icon}</span>
+            <div className="flex-1 min-w-0">
+              <span className="font-semibold text-stone-800 text-sm">{stop.name}</span>
+              <p className="text-xs text-stone-400">
+                {stop.altitude} &middot; {stop.date}
+                {stop.distanceFromPrev && <> &middot; {stop.distanceFromPrev}</>}
+              </p>
+            </div>
+            {idx > 0 && stop.distanceFromPrev && (
+              <span className="text-xs text-amber-600 font-medium shrink-0">↑ {stop.distanceFromPrev}</span>
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MUSEUM TAB — Drag and drop with exact text
+   ═══════════════════════════════════════════════════════════ */
+
+function DraggableArtifact({ artifact, disabled }: { artifact: ArtifactItem; disabled: boolean }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: artifact.id,
+    disabled,
+  })
+  const style = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
+    : undefined
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      className={`p-3 rounded-xl border-2 cursor-grab active:cursor-grabbing transition-all flex items-center gap-2 ${
+        isDragging
+          ? 'shadow-2xl z-50 opacity-90 border-amber-400 bg-amber-50 rotate-2 scale-105'
+          : disabled
+          ? 'bg-stone-100 border-stone-200 opacity-50 cursor-default'
+          : 'bg-white border-stone-200 hover:border-amber-300 hover:shadow-md'
+      }`}
+    >
+      <span className="text-2xl">{artifact.icon}</span>
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-stone-800 truncate">{artifact.name}</p>
+        <p className="text-xs text-stone-400 truncate">{artifact.shortDesc}</p>
+      </div>
+    </div>
+  )
+}
+
+function DroppableMoment({
+  moment,
+  matchedArtifacts,
+  onShowDetail,
+}: {
+  moment: DiscoveryMoment
+  matchedArtifacts: ArtifactItem[]
+  onShowDetail: (a: ArtifactItem) => void
+}) {
+  const { isOver, setNodeRef } = useDroppable({ id: moment.id })
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`rounded-2xl p-4 border-2 transition-all ${
+        isOver
+          ? 'border-amber-400 bg-amber-50 shadow-lg scale-[1.01]'
+          : matchedArtifacts.length > 0
+          ? 'border-emerald-300 bg-emerald-50/50'
+          : 'border-dashed border-stone-300 bg-stone-50/50'
+      }`}
+    >
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-xl">{moment.icon}</span>
+        <div>
+          <h4 className="font-semibold text-stone-800 text-sm">{moment.title}</h4>
+          <p className="text-xs text-stone-400">{moment.description}</p>
+        </div>
+        {matchedArtifacts.length > 0 && (
+          <span className="ml-auto text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
+            {matchedArtifacts.length} ✓
+          </span>
+        )}
+      </div>
+
+      {/* Matched artifacts */}
+      {matchedArtifacts.length > 0 && (
+        <div className="space-y-2 mt-3">
+          {matchedArtifacts.map((a) => (
             <button
-              key={stop.id}
-              onClick={() => setSelectedStop(stop)}
-              className={`w-full text-left p-3 rounded-xl transition-all flex items-center gap-3 ${
-                selectedStop?.id === stop.id
-                  ? 'bg-white shadow-md border-2 scale-[1.02]'
-                  : 'bg-white/60 hover:bg-white/90 border border-stone-100'
-              }`}
-              style={
-                selectedStop?.id === stop.id
-                  ? { borderColor: phaseColors[stop.phase] }
-                  : undefined
-              }
+              key={a.id}
+              onClick={() => onShowDetail(a)}
+              className="w-full text-left p-3 bg-white rounded-xl border border-emerald-200 hover:shadow-md transition-all"
             >
-              <span className="text-2xl">{stop.icon}</span>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold text-stone-800 text-sm">{stop.name}</span>
-                  <span className="text-xs text-stone-400">{stop.altitude}</span>
-                </div>
-                <p className="text-xs text-stone-500 truncate">{stop.date}</p>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-lg">{a.icon}</span>
+                <span className="text-sm font-semibold text-stone-800">{a.name}</span>
+                <span className="text-xs text-stone-400 ml-auto">{a.novelPage}</span>
               </div>
-              <span
-                className="w-2 h-2 rounded-full shrink-0"
-                style={{ backgroundColor: phaseColors[stop.phase] }}
-              />
+              <p className="text-xs italic text-stone-500 line-clamp-1">{a.exactQuote.slice(0, 80)}...</p>
             </button>
           ))}
         </div>
-      </div>
+      )}
     </div>
   )
 }
 
 function MuseumTab() {
-  const [selectedArtifact, setSelectedArtifact] = useState<Artifact | null>(null)
-  const [activeCategory, setActiveCategory] = useState('Todos')
-  const [searchTerm, setSearchTerm] = useState('')
+  const [matched, setMatched] = useState<Record<string, string[]>>({})
+  const [selectedArtifact, setSelectedArtifact] = useState<ArtifactItem | null>(null)
+  const [wrongAttempts, setWrongAttempts] = useState<Record<string, number>>({})
 
-  const filtered = artifacts.filter((a) => {
-    const matchCat = activeCategory === 'Todos' || a.category === activeCategory
-    const matchSearch =
-      a.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      a.description.toLowerCase().includes(searchTerm.toLowerCase())
-    return matchCat && matchSearch
-  })
+  const allMatchedIds = Object.values(matched).flat()
+  const allMatched = allMatchedIds.length
+  const totalArtifacts = artifactItems.length
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over) return
+
+    const artifactId = active.id as string
+    const momentId = over.id as string
+    const artifact = artifactItems.find((a) => a.id === artifactId)
+    if (!artifact) return
+
+    if (artifact.momentId === momentId) {
+      setMatched((prev) => {
+        const current = prev[momentId] || []
+        if (current.includes(artifactId)) return prev
+        return { ...prev, [momentId]: [...current, artifactId] }
+      })
+    } else {
+      setWrongAttempts((prev) => ({
+        ...prev,
+        [artifactId]: (prev[artifactId] || 0) + 1,
+      }))
+    }
+  }, [])
+
+  const isArtifactMatched = (id: string) => allMatchedIds.includes(id)
+
+  const getMatchedArtifactsForMoment = (momentId: string) => {
+    const ids = matched[momentId] || []
+    return ids.map((id) => artifactItems.find((a) => a.id === id)!).filter(Boolean)
+  }
+
+  const resetGame = () => {
+    setMatched({})
+    setWrongAttempts({})
+    setSelectedArtifact(null)
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Search and filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <input
-          type="text"
-          placeholder="Buscar pieza..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="flex-1 px-4 py-2 rounded-xl border border-stone-200 bg-white/80 text-stone-800 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-amber-400"
-        />
-        <div className="flex flex-wrap gap-1.5">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                activeCategory === cat
-                  ? 'bg-amber-700 text-white shadow'
-                  : 'bg-white/80 text-stone-600 hover:bg-white border border-stone-200'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="text-center space-y-2">
+        <h2 className="text-xl font-bold text-stone-800">Museo de Piezas — Arrastrá cada elemento al momento correcto</h2>
+        <p className="text-sm text-stone-500">
+          Arrastrá cada pieza al momento de la novela en que aparece. Al acertar, se revelará el fragmento exacto del texto.
+        </p>
+        <div className="flex items-center justify-center gap-3">
+          <span className="text-sm font-medium text-amber-700">
+            {allMatched} / {totalArtifacts} piezas colocadas
+          </span>
+          <div className="w-32 h-2 bg-stone-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-amber-500 rounded-full transition-all"
+              style={{ width: `${(allMatched / totalArtifacts) * 100}%` }}
+            />
+          </div>
+          <button onClick={resetGame} className="text-xs text-stone-400 hover:text-stone-600 underline">
+            Reiniciar
+          </button>
         </div>
       </div>
 
-      <p className="text-sm text-stone-500 text-center">
-        {filtered.length} piezas encontradas &middot; El ajuar completo constaba de 80 piezas
-      </p>
-
-      {/* Artifacts grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map((artifact) => (
-          <button
-            key={artifact.id}
-            onClick={() => setSelectedArtifact(artifact)}
-            className={`text-left p-4 rounded-2xl bg-white/80 border transition-all hover:shadow-md hover:scale-[1.02] ${
-              selectedArtifact?.id === artifact.id
-                ? 'border-amber-600 shadow-lg'
-                : 'border-stone-200'
-            }`}
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <span className="text-3xl">{artifact.icon}</span>
-              <div>
-                <h4 className="font-semibold text-stone-800 text-sm">{artifact.name}</h4>
-                <p className="text-xs text-amber-700">{artifact.category} &middot; {artifact.material}</p>
-              </div>
-            </div>
-            <p className="text-xs text-stone-500 line-clamp-2">{artifact.description}</p>
-            {/* Placeholder for image */}
-            <div className="mt-3 h-24 bg-gradient-to-br from-amber-50 to-stone-100 rounded-xl flex items-center justify-center border border-dashed border-amber-200">
-              <span className="text-xs text-amber-400">Imagen: {artifact.name}</span>
-            </div>
-          </button>
-        ))}
-      </div>
-
-      {/* Selected artifact detail */}
-      {selectedArtifact && (
-        <div className="rounded-2xl p-6 bg-white shadow-lg border-2 border-amber-600 animate-in fade-in slide-in-from-bottom-4">
-          <div className="flex items-start gap-4">
-            <span className="text-5xl">{selectedArtifact.icon}</span>
-            <div className="flex-1">
-              <h3 className="text-xl font-bold text-stone-800">{selectedArtifact.name}</h3>
-              <p className="text-sm text-amber-700 mb-3">
-                {selectedArtifact.category} &middot; Material: {selectedArtifact.material}
-              </p>
-              <p className="text-stone-700 leading-relaxed mb-4">{selectedArtifact.description}</p>
-              <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
-                <h4 className="font-semibold text-amber-800 text-sm mb-1">Significado cultural</h4>
-                <p className="text-sm text-amber-900 leading-relaxed">{selectedArtifact.significance}</p>
-              </div>
+      <DndContext onDragEnd={handleDragEnd}>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          {/* Draggable artifacts */}
+          <div className="lg:col-span-4 space-y-2">
+            <h3 className="text-sm font-semibold text-stone-600 mb-2">📦 Piezas por colocar</h3>
+            <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+              {artifactItems.map((a) => (
+                <DraggableArtifact
+                  key={a.id}
+                  artifact={a}
+                  disabled={isArtifactMatched(a.id)}
+                />
+              ))}
             </div>
           </div>
-          {/* Larger placeholder for image */}
-          <div className="mt-4 h-40 bg-gradient-to-br from-amber-50 to-stone-100 rounded-xl flex items-center justify-center border-2 border-dashed border-amber-300">
-            <div className="text-center">
-              <span className="text-3xl">{selectedArtifact.icon}</span>
-              <p className="text-sm text-amber-500 mt-1">Espacio para agregar imagen</p>
-              <p className="text-xs text-amber-400">{selectedArtifact.name}</p>
+
+          {/* Droppable moments */}
+          <div className="lg:col-span-8 space-y-3">
+            <h3 className="text-sm font-semibold text-stone-600 mb-2">📖 Momentos de la novela</h3>
+            {discoveryMoments.map((moment) => (
+              <DroppableMoment
+                key={moment.id}
+                moment={moment}
+                matchedArtifacts={getMatchedArtifactsForMoment(moment.id)}
+                onShowDetail={setSelectedArtifact}
+              />
+            ))}
+          </div>
+        </div>
+      </DndContext>
+
+      {/* Artifact detail modal */}
+      {selectedArtifact && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setSelectedArtifact(null)}>
+          <div className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl animate-in fade-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-4xl">{selectedArtifact.icon}</span>
+              <div>
+                <h3 className="text-lg font-bold text-stone-800">{selectedArtifact.name}</h3>
+                <p className="text-xs text-stone-400">{selectedArtifact.novelPage}</p>
+              </div>
+              <button onClick={() => setSelectedArtifact(null)} className="ml-auto text-stone-400 hover:text-stone-600 text-xl">✕</button>
+            </div>
+
+            {/* Exact quote */}
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+              <h4 className="text-xs font-bold text-amber-700 mb-1">📜 Fragmento exacto de la novela</h4>
+              <p className="text-sm italic text-amber-900 leading-relaxed">&ldquo;{selectedArtifact.exactQuote}&rdquo;</p>
+            </div>
+
+            {/* How it ended in the burial */}
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+              <h4 className="text-xs font-bold text-emerald-700 mb-1">🔮 Cómo terminó en el entierro de la Doncella</h4>
+              <p className="text-sm text-emerald-900 leading-relaxed">{selectedArtifact.howItEnded}</p>
+            </div>
+
+            {/* Image placeholder */}
+            <div className="mt-4 h-32 bg-gradient-to-br from-amber-50 to-stone-100 rounded-xl flex items-center justify-center border-2 border-dashed border-amber-300">
+              <div className="text-center">
+                <span className="text-3xl">{selectedArtifact.icon}</span>
+                <p className="text-xs text-amber-500 mt-1">Espacio para agregar imagen</p>
+              </div>
             </div>
           </div>
         </div>
@@ -723,109 +904,134 @@ function MuseumTab() {
   )
 }
 
+/* ═══════════════════════════════════════════════════════════
+   DECISION TAB — Real quotes from the text
+   ═══════════════════════════════════════════════════════════ */
+
 function DecisionTab() {
   const [choice, setChoice] = useState<'museo' | 'montaña' | null>(null)
-  const [fragments, setFragments] = useState<number[]>([])
+  const [selectedQuotes, setSelectedQuotes] = useState<string[]>([])
   const [showResult, setShowResult] = useState(false)
 
-  const heartFragments = [
-    { id: 1, text: 'La ciencia puede leer su mensaje y descifrar su historia', side: 'museo' as const },
-    { id: 2, text: 'La montaña es su hogar sagrado, el Apu la espera', side: 'montaña' as const },
-    { id: 3, text: 'Las comunidades originarias dicen: "Nuestra niña no está muerta, duerme"', side: 'montaña' as const },
-    { id: 4, text: 'Los estudios científicos revelan secretos de hace 500 años', side: 'museo' as const },
-    { id: 5, text: 'El equilibrio con la naturaleza se rompe al sacarla de la montaña', side: 'montaña' as const },
-    { id: 6, text: 'El MAMCA puede mostrar su cultura al mundo entero', side: 'museo' as const },
-    { id: 7, text: 'El sapo hiberna y despierta cuando el tiempo es propicio', side: 'montaña' as const },
-    { id: 8, text: 'Las semillas de su ajuar brotaron después de 500 años gracias a la ciencia', side: 'museo' as const },
-  ]
+  const allQuotes = [...museumQuotes, ...mountainQuotes]
+  const totalQuotes = allQuotes.length
+  const selectedCount = selectedQuotes.length
+
+  const toggleQuote = (id: string) => {
+    setSelectedQuotes((prev) => (prev.includes(id) ? prev.filter((q) => q !== id) : [...prev, id]))
+  }
+
+  const handleConfirm = () => {
+    if (choice) setShowResult(true)
+  }
+
+  const reset = () => {
+    setChoice(null)
+    setShowResult(false)
+    setSelectedQuotes([])
+  }
 
   const museumAdvantages = [
-    'Preservación garantizada con tecnología de punta',
-    'Estudios científicos que revelan información invaluable sobre la cultura inca',
+    'Preservación garantizada con tecnología de punta en el MAAM/MAMCA',
+    'Estudios científicos que revelan información invaluable (ADN, tomografías, radiografías)',
     'Educación: millones de personas pueden conocer y valorar esta cultura',
-    'Protección contra el huaqueo y el mercado negro',
-    'Las semillas del ajuar pudieron germinar tras 500 años de hibernación',
-    'Se descubre el secreto del sapo de oro y el quipu en su interior',
+    'Protección contra el huaqueo y el mercado negro de bienes culturales',
+    'Las semillas del ajuar brotaron después de 500 años gracias a la ciencia',
+    'Se descubre el secreto del sapo de oro y el quipu con tres nudos',
   ]
 
   const museumDisadvantages = [
-    'Riesgo de explotación comercial y política',
-    'El gobernador traicionó los acuerdos con las comunidades',
-    'Se planeaban exposiciones en el extranjero sin consentimiento',
+    'El gobernador traicionó los acuerdos con las comunidades y firmó preacuerdos secretos',
+    'Se planeaban exposiciones en el Met, París, Berlín y cinco ciudades japonesas sin consentimiento',
+    'Intereses económicos: hotel 5 estrellas, restaurantes, negocio turístico',
+    'La momia se convierte en objeto de circo político y mediático',
     'Se rompe el equilibrio sagrado entre la montaña y la Doncella',
-    'La momia se convierte en objeto de circo turístico',
-    'Intereses económicos por encima del respeto cultural',
+    'Los coleccionistas privados del mercado negro esperan la oportunidad',
   ]
 
   const mountainAdvantages = [
     'Se restaura el equilibrio sagrado con la naturaleza y el Apu',
-    'Se respeta la cosmovisión andina: ella duerme, no está muerta',
+    'Se respeta la cosmovisión andina: "nuestra niña no está muerta, duerme"',
     'Las comunidades originarias recuperan a "su niña"',
-    'La Doncella vuelve a ser la mensajera de los dioses',
-    'El sapo puede seguir hibernando hasta que el tiempo sea propicio',
+    'La Doncella vuelve a ser la mensajera de los dioses en su templo',
+    'El sapo puede seguir hibernando hasta que los tiempos sean propicios',
     'Se cumple la ley 25.517 de restitución de restos mortales',
   ]
 
   const mountainDisadvantages = [
-    'Riesgo de que huaqueros encuentren y roben la momia',
-    'Se pierde la oportunidad de estudios científicos',
-    'Sin difusión, la cultura corre riesgo de ser olvidada',
-    'Las condiciones en la montaña pueden deteriorar el cuerpo',
-    'Es difícil garantizar la seguridad a 6.800 metros',
+    'Riesgo de que huaqueros encuentren y roben la momia para el mercado negro',
+    'Se pierde la oportunidad de estudios científicos que revelen su historia',
+    'Sin difusión en museos, la cultura corre riesgo de ser olvidada',
+    'Las condiciones en la montaña pueden deteriorar el cuerpo con el tiempo',
+    'Es imposible garantizar la seguridad permanente a 6.800 metros',
     'La ciencia pierde acceso a un hallazgo único en el mundo',
   ]
-
-  const toggleFragment = (id: number) => {
-    setFragments((prev) => (prev.includes(id) ? prev.filter((f) => f !== id) : [...prev, id]))
-  }
-
-  const handleFinalChoice = () => {
-    if (choice) {
-      setShowResult(true)
-    }
-  }
-
-  const totalFragments = heartFragments.length
-  const selectedFragments = fragments.length
 
   return (
     <div className="space-y-8">
       {/* Introduction */}
       <div className="text-center space-y-3">
         <h2 className="text-2xl font-bold text-stone-800">¿Qué hacer con la Doncella Roja?</h2>
-        <p className="text-stone-600 max-w-2xl mx-auto leading-relaxed">
+        <p className="text-stone-600 max-w-2xl mx-auto leading-relaxed text-sm">
           Manuel está dividido. Su corazón se ha partido en pedazos. De un lado, Vera y la ciencia;
-          del otro, Teresa y las comunidades originarias. De un lado, la preservación a través del
-          conocimiento; del otro, el respeto por lo sagrado. Antes de decidir, elegí los fragmentos
-          del corazón de Manuel que resuenan con tu elección.
+          del otro, Teresa y las comunidades. Leé las frases reales del texto y elegí los fragmentos
+          del corazón de Manuel que resuenan con tu postura. Después, tomá una decisión.
         </p>
       </div>
 
-      {/* Heart fragments */}
-      <div className="space-y-3">
+      {/* Real quotes from the text */}
+      <div className="space-y-4">
         <h3 className="text-lg font-semibold text-stone-700 text-center">
-          Fragmentos del corazón de Manuel
+          Fragmentos del corazón de Manuel — Frases reales del texto
         </h3>
-        <p className="text-sm text-stone-500 text-center">
-          Elegí los fragmentos que te convencen ({selectedFragments}/{totalFragments} elegidos)
+        <p className="text-xs text-stone-500 text-center">
+          Elegí los fragmentos que te convencen ({selectedCount}/{totalQuotes})
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {heartFragments.map((frag) => (
-            <button
-              key={frag.id}
-              onClick={() => toggleFragment(frag.id)}
-              className={`p-4 rounded-xl text-left transition-all flex items-start gap-3 ${
-                fragments.includes(frag.id)
-                  ? frag.side === 'museo'
-                    ? 'bg-violet-100 border-2 border-violet-400 shadow-md'
-                    : 'bg-emerald-100 border-2 border-emerald-400 shadow-md'
-                  : 'bg-white/80 border border-stone-200 hover:bg-white'
-              }`}
-            >
-              <span className="text-lg">{frag.side === 'museo' ? '🔬' : '⛰️'}</span>
-              <span className="text-sm text-stone-700">{frag.text}</span>
-            </button>
-          ))}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Museum quotes */}
+          <div>
+            <h4 className="text-sm font-bold text-violet-700 mb-2 flex items-center gap-1">
+              🏛️ La postura de Vera y la ciencia
+            </h4>
+            <div className="space-y-2">
+              {museumQuotes.map((q) => (
+                <button
+                  key={q.id}
+                  onClick={() => toggleQuote(q.id)}
+                  className={`w-full text-left p-3 rounded-xl transition-all ${
+                    selectedQuotes.includes(q.id)
+                      ? 'bg-violet-100 border-2 border-violet-400 shadow'
+                      : 'bg-white/80 border border-stone-200 hover:bg-white'
+                  }`}
+                >
+                  <p className="text-xs italic text-stone-700 leading-relaxed">&ldquo;{q.quote}&rdquo;</p>
+                  <p className="text-xs text-violet-500 mt-1 font-medium">— {q.speaker} ({q.page})</p>
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Mountain quotes */}
+          <div>
+            <h4 className="text-sm font-bold text-emerald-700 mb-2 flex items-center gap-1">
+              ⛰️ La postura de Teresa y las comunidades
+            </h4>
+            <div className="space-y-2">
+              {mountainQuotes.map((q) => (
+                <button
+                  key={q.id}
+                  onClick={() => toggleQuote(q.id)}
+                  className={`w-full text-left p-3 rounded-xl transition-all ${
+                    selectedQuotes.includes(q.id)
+                      ? 'bg-emerald-100 border-2 border-emerald-400 shadow'
+                      : 'bg-white/80 border border-stone-200 hover:bg-white'
+                  }`}
+                >
+                  <p className="text-xs italic text-stone-700 leading-relaxed">&ldquo;{q.quote}&rdquo;</p>
+                  <p className="text-xs text-emerald-500 mt-1 font-medium">— {q.speaker} ({q.page})</p>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -834,128 +1040,94 @@ function DecisionTab() {
         {/* Museum side */}
         <button
           onClick={() => setChoice('museo')}
-          className={`text-left p-6 rounded-2xl transition-all ${
+          className={`text-left p-5 rounded-2xl transition-all ${
             choice === 'museo'
-              ? 'bg-violet-50 border-2 border-violet-500 shadow-xl scale-[1.02]'
+              ? 'bg-violet-50 border-2 border-violet-500 shadow-xl'
               : 'bg-white/80 border border-stone-200 hover:shadow-md'
           }`}
         >
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-full bg-violet-100 flex items-center justify-center text-2xl">
-              🏛️
-            </div>
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-3xl">🏛️</span>
             <div>
               <h3 className="text-lg font-bold text-violet-800">Exhibir en el Museo</h3>
               <p className="text-xs text-violet-600">La postura de Vera y la ciencia</p>
             </div>
           </div>
-
           <div className="space-y-3">
             <div>
-              <h4 className="text-sm font-semibold text-green-700 mb-1 flex items-center gap-1">
-                ✅ Ventajas
-              </h4>
-              <ul className="space-y-1">
-                {museumAdvantages.map((adv, i) => (
-                  <li key={i} className="text-xs text-stone-600 flex items-start gap-1.5">
-                    <span className="text-green-500 mt-0.5">•</span>
-                    {adv}
+              <h4 className="text-xs font-bold text-green-700 mb-1">✅ Ventajas</h4>
+              <ul className="space-y-0.5">
+                {museumAdvantages.map((a, i) => (
+                  <li key={i} className="text-xs text-stone-600 flex items-start gap-1">
+                    <span className="text-green-500">•</span>{a}
                   </li>
                 ))}
               </ul>
             </div>
             <div>
-              <h4 className="text-sm font-semibold text-red-700 mb-1 flex items-center gap-1">
-                ❌ Desventajas
-              </h4>
-              <ul className="space-y-1">
-                {museumDisadvantages.map((dis, i) => (
-                  <li key={i} className="text-xs text-stone-600 flex items-start gap-1.5">
-                    <span className="text-red-400 mt-0.5">•</span>
-                    {dis}
+              <h4 className="text-xs font-bold text-red-700 mb-1">❌ Desventajas</h4>
+              <ul className="space-y-0.5">
+                {museumDisadvantages.map((d, i) => (
+                  <li key={i} className="text-xs text-stone-600 flex items-start gap-1">
+                    <span className="text-red-400">•</span>{d}
                   </li>
                 ))}
               </ul>
             </div>
-          </div>
-
-          <div className="mt-4 p-3 bg-violet-100/50 rounded-xl">
-            <p className="text-xs italic text-violet-800">
-              &ldquo;No es posible entender lo que no se conoce. Menos aún se puede cuidar ni amar
-              lo que no se conoce. Exhibir a la Doncella, si se lo hacía con respeto, era mostrar
-              todo su mundo, sus creencias, sus valores.&rdquo; — Vera Larsen
-            </p>
           </div>
         </button>
 
         {/* Mountain side */}
         <button
           onClick={() => setChoice('montaña')}
-          className={`text-left p-6 rounded-2xl transition-all ${
+          className={`text-left p-5 rounded-2xl transition-all ${
             choice === 'montaña'
-              ? 'bg-emerald-50 border-2 border-emerald-500 shadow-xl scale-[1.02]'
+              ? 'bg-emerald-50 border-2 border-emerald-500 shadow-xl'
               : 'bg-white/80 border border-stone-200 hover:shadow-md'
           }`}
         >
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-2xl">
-              ⛰️
-            </div>
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-3xl">⛰️</span>
             <div>
               <h3 className="text-lg font-bold text-emerald-800">Devolver a la Montaña</h3>
               <p className="text-xs text-emerald-600">La postura de Teresa y las comunidades</p>
             </div>
           </div>
-
           <div className="space-y-3">
             <div>
-              <h4 className="text-sm font-semibold text-green-700 mb-1 flex items-center gap-1">
-                ✅ Ventajas
-              </h4>
-              <ul className="space-y-1">
-                {mountainAdvantages.map((adv, i) => (
-                  <li key={i} className="text-xs text-stone-600 flex items-start gap-1.5">
-                    <span className="text-green-500 mt-0.5">•</span>
-                    {adv}
+              <h4 className="text-xs font-bold text-green-700 mb-1">✅ Ventajas</h4>
+              <ul className="space-y-0.5">
+                {mountainAdvantages.map((a, i) => (
+                  <li key={i} className="text-xs text-stone-600 flex items-start gap-1">
+                    <span className="text-green-500">•</span>{a}
                   </li>
                 ))}
               </ul>
             </div>
             <div>
-              <h4 className="text-sm font-semibold text-red-700 mb-1 flex items-center gap-1">
-                ❌ Desventajas
-              </h4>
-              <ul className="space-y-1">
-                {mountainDisadvantages.map((dis, i) => (
-                  <li key={i} className="text-xs text-stone-600 flex items-start gap-1.5">
-                    <span className="text-red-400 mt-0.5">•</span>
-                    {dis}
+              <h4 className="text-xs font-bold text-red-700 mb-1">❌ Desventajas</h4>
+              <ul className="space-y-0.5">
+                {mountainDisadvantages.map((d, i) => (
+                  <li key={i} className="text-xs text-stone-600 flex items-start gap-1">
+                    <span className="text-red-400">•</span>{d}
                   </li>
                 ))}
               </ul>
             </div>
-          </div>
-
-          <div className="mt-4 p-3 bg-emerald-100/50 rounded-xl">
-            <p className="text-xs italic text-emerald-800">
-              &ldquo;Para los andinos la montaña es Dios. La montaña, el sol, el rayo, la luna no
-              representan a los dioses, SON los dioses. Al arrancar a la Doncella de la montaña,
-              están rompiendo un equilibrio sagrado.&rdquo; — Sergio Vargas, La Voz de los Andes
-            </p>
           </div>
         </button>
       </div>
 
-      {/* Confirm button */}
+      {/* Confirm */}
       {choice && !showResult && (
         <div className="text-center animate-in fade-in">
           <button
-            onClick={handleFinalChoice}
+            onClick={handleConfirm}
             className={`px-8 py-3 rounded-xl text-white font-bold text-lg shadow-lg transition-all hover:scale-105 ${
               choice === 'museo' ? 'bg-violet-600 hover:bg-violet-700' : 'bg-emerald-600 hover:bg-emerald-700'
             }`}
           >
-            Confirmar mi elección: {choice === 'museo' ? '🏛️ Exhibir en el Museo' : '⛰️ Devolver a la Montaña'}
+            Confirmar: {choice === 'museo' ? '🏛️ Exhibir en el Museo' : '⛰️ Devolver a la Montaña'}
           </button>
         </div>
       )}
@@ -967,166 +1139,75 @@ function DecisionTab() {
             choice === 'museo' ? 'bg-violet-50 border-2 border-violet-300' : 'bg-emerald-50 border-2 border-emerald-300'
           }`}
         >
-          {/* Heart animation */}
-          <div className="mb-6 flex justify-center">
-            <div className="relative">
-              <svg width="120" height="120" viewBox="0 0 120 120">
-                {/* Heart shape */}
-                <path
-                  d="M60,100 C60,100 15,65 15,40 C15,20 30,10 45,15 C52,18 57,25 60,30 C63,25 68,18 75,15 C90,10 105,20 105,40 C105,65 60,100 60,100Z"
-                  fill={choice === 'museo' ? '#8b5cf6' : '#059669'}
-                  opacity="0.2"
-                />
-                {/* Fragments that are "united" */}
-                {fragments.length > 0 && (
-                  <path
-                    d="M60,100 C60,100 15,65 15,40 C15,20 30,10 45,15 C52,18 57,25 60,30 C63,25 68,18 75,15 C90,10 105,20 105,40 C105,65 60,100 60,100Z"
-                    fill={choice === 'museo' ? '#8b5cf6' : '#059669'}
-                    opacity={Math.max(0.3, fragments.length / totalFragments)}
-                  />
-                )}
-                {/* Quipu knot symbol */}
-                <circle cx="60" cy="45" r="4" fill="none" stroke={choice === 'museo' ? '#7c3aed' : '#047857'} strokeWidth="2" />
-                <circle cx="50" cy="55" r="3" fill="none" stroke={choice === 'museo' ? '#7c3aed' : '#047857'} strokeWidth="2" />
-                <circle cx="70" cy="55" r="3" fill="none" stroke={choice === 'museo' ? '#7c3aed' : '#047857'} strokeWidth="2" />
-                <line x1="60" y1="49" x2="50" y2="52" stroke={choice === 'museo' ? '#7c3aed' : '#047857'} strokeWidth="1.5" />
-                <line x1="60" y1="49" x2="70" y2="52" stroke={choice === 'museo' ? '#7c3aed' : '#047857'} strokeWidth="1.5" />
-              </svg>
-            </div>
+          {/* Heart with quipu */}
+          <div className="mb-4 flex justify-center">
+            <svg width="100" height="100" viewBox="0 0 120 120">
+              <path
+                d="M60,100 C60,100 15,65 15,40 C15,20 30,10 45,15 C52,18 57,25 60,30 C63,25 68,18 75,15 C90,10 105,20 105,40 C105,65 60,100 60,100Z"
+                fill={choice === 'museo' ? '#8b5cf6' : '#059669'}
+                opacity={Math.max(0.2, selectedCount / totalQuotes * 0.8 + 0.2)}
+              />
+              <circle cx="60" cy="50" r="5" fill="none" stroke="white" strokeWidth="2" />
+              <circle cx="50" cy="62" r="4" fill="none" stroke="white" strokeWidth="2" />
+              <circle cx="70" cy="62" r="4" fill="none" stroke="white" strokeWidth="2" />
+              <line x1="60" y1="55" x2="50" y2="58" stroke="white" strokeWidth="1.5" />
+              <line x1="60" y1="55" x2="70" y2="58" stroke="white" strokeWidth="1.5" />
+            </svg>
           </div>
 
           {choice === 'museo' ? (
             <div className="space-y-3">
-              <h3 className="text-2xl font-bold text-violet-800">
-                Elegiste la ciencia y la preservación
-              </h3>
-              <p className="text-violet-700 max-w-lg mx-auto">
+              <h3 className="text-xl font-bold text-violet-800">Elegiste la ciencia y la preservación</h3>
+              <p className="text-violet-700 text-sm max-w-lg mx-auto">
                 Como Vera, creés que el conocimiento es la forma de proteger y valorar la cultura.
-                La Doncella puede ser estudiada, su mensaje puede ser leído, y millones de personas
-                pueden aprender sobre el mundo inca a través de ella.
               </p>
-              <div className="bg-white/60 rounded-xl p-4 mt-4">
+              <div className="bg-white/60 rounded-xl p-4 mt-3 max-w-lg mx-auto">
                 <p className="text-sm italic text-stone-700">
-                  &ldquo;Sembrar muertos para cosechar vivos&rdquo; — Sentencia inca que Vera cita.
-                  La Doncella cosechará más vida para su cultura a través del conocimiento.
+                  &ldquo;Sembrar muertos para cosechar vivos&rdquo; — Sentencia inca citada por Vera Larsen (p.73)
                 </p>
               </div>
             </div>
           ) : (
             <div className="space-y-3">
-              <h3 className="text-2xl font-bold text-emerald-800">
-                Elegiste lo sagrado y el respeto
-              </h3>
-              <p className="text-emerald-700 max-w-lg mx-auto">
-                Como Teresa y las comunidades originarias, creés que la Doncella debe volver a su
-                hogar sagrado. Ella no es un objeto: es una mensajera que duerme un sueño sagrado
-                en lo alto del Apu, garantizando el equilibrio del mundo.
+              <h3 className="text-xl font-bold text-emerald-800">Elegiste lo sagrado y el respeto</h3>
+              <p className="text-emerald-700 text-sm max-w-lg mx-auto">
+                Como Teresa y las comunidades, creés que la Doncella debe volver a su hogar sagrado.
               </p>
-              <div className="bg-white/60 rounded-xl p-4 mt-4">
+              <div className="bg-white/60 rounded-xl p-4 mt-3 max-w-lg mx-auto">
                 <p className="text-sm italic text-stone-700">
-                  &ldquo;No sirve de nada un corazón descuartizado. Sirve un corazón sano y entero.&rdquo;
-                  — Abuela Lucero. Los pedazos del corazón de Manuel se unen cuando la Doncella
-                  vuelve a la montaña.
+                  &ldquo;No sirve de nada un corazón descuartizado. Sirve un corazón sano y entero. Y cuando la Pacha reúna sus pedazos, lo sabrá en su corazón, propiamente.&rdquo; — Abuela Lucero (p.81)
                 </p>
               </div>
             </div>
           )}
-
-          <div className="mt-6">
-            <p className="text-sm text-stone-500">
-              Fragmentos elegidos: {selectedFragments}/{totalFragments} — Corazón{' '}
-              {selectedFragments >= totalFragments * 0.7
-                ? 'casi completo'
-                : selectedFragments >= totalFragments * 0.4
-                ? 'a medio camino'
-                : 'fragmentado'}
-            </p>
-          </div>
-
-          <button
-            onClick={() => {
-              setChoice(null)
-              setShowResult(false)
-              setFragments([])
-            }}
-            className="mt-4 px-6 py-2 rounded-xl bg-stone-200 text-stone-700 text-sm hover:bg-stone-300 transition-colors"
-          >
+          <p className="text-xs text-stone-400 mt-3">
+            Fragmentos elegidos: {selectedCount}/{totalQuotes} — Corazón{' '}
+            {selectedCount >= totalQuotes * 0.7 ? 'casi completo' : selectedCount >= totalQuotes * 0.4 ? 'a medio camino' : 'fragmentado'}
+          </p>
+          <button onClick={reset} className="mt-4 px-5 py-2 rounded-xl bg-stone-200 text-stone-600 text-sm hover:bg-stone-300">
             Volver a elegir
           </button>
         </div>
       )}
 
-      {/* Key quotes section */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="p-4 bg-violet-50 rounded-xl border border-violet-200">
-          <p className="text-xs text-violet-400 mb-1 font-semibold">Vera Larsen — Antropóloga</p>
-          <p className="text-sm italic text-violet-800">
-            &ldquo;No estaba a favor de la exhibición de las momias como si fueran objetos. Pero
-            exhibir a la Doncella, si se lo hacía con respeto, era mostrar todo su mundo, sus
-            creencias, sus valores. Era una forma de defender esa cultura.&rdquo;
-          </p>
-        </div>
-        <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
-          <p className="text-xs text-emerald-400 mb-1 font-semibold">Teresa — Comunidad originaria</p>
-          <p className="text-sm italic text-emerald-800">
-            &ldquo;Para nosotros, nuestra niña no está muerta; duerme allá, en lo más alto, un
-            sueño sagrado. Al arrancarla de la montaña, la están matando. El sueño de la niña
-            aseguraba un equilibrio con la naturaleza.&rdquo;
-          </p>
-        </div>
-        <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
-          <p className="text-xs text-amber-400 mb-1 font-semibold">Abuela Lucero — Chamana</p>
-          <p className="text-sm italic text-amber-800">
-            &ldquo;No sirve de nada un corazón descuartizado. Sirve un corazón sano y entero. Ya
-            sabrá qué hacer. Y cuando la Pacha reúna sus pedazos, lo sabrá en su corazón,
-            propiamente.&rdquo;
-          </p>
-        </div>
-        <div className="p-4 bg-stone-50 rounded-xl border border-stone-200">
-          <p className="text-xs text-stone-400 mb-1 font-semibold">Manuel — El corazón dividido</p>
-          <p className="text-sm italic text-stone-700">
-            &ldquo;Se sentía partido por la mitad. Dividido entre Vera y Teresa. Entre su gente y
-            la ciencia. Como un montón de pedazos sostenidos por la tela de araña de la voz de su
-            abuela.&rdquo;
-          </p>
-        </div>
-      </div>
-
-      {/* Key facts from the book */}
-      <div className="p-5 bg-stone-50 rounded-2xl border border-stone-200">
-        <h4 className="font-semibold text-stone-700 mb-3">Datos clave de la historia</h4>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <div className="text-xs text-stone-600 flex items-start gap-2">
-            <span className="text-amber-500">📜</span>
-            <span>La Doncella tenía ~15 años y murió entre 1520-1530</span>
-          </div>
-          <div className="text-xs text-stone-600 flex items-start gap-2">
-            <span className="text-amber-500">📜</span>
-            <span>Murió sin violencia: fue adormecida con chicha y coca</span>
-          </div>
-          <div className="text-xs text-stone-600 flex items-start gap-2">
-            <span className="text-amber-500">📜</span>
-            <span>El sapo de oro en su estómago contenía un quipu con 3 nudos</span>
-          </div>
-          <div className="text-xs text-stone-600 flex items-start gap-2">
-            <span className="text-amber-500">📜</span>
-            <span>El quipu era idéntico al de la abuela Lucero de Manuel</span>
-          </div>
-          <div className="text-xs text-stone-600 flex items-start gap-2">
-            <span className="text-amber-500">📜</span>
-            <span>Las semillas de su ajuar brotaron tras 500 años</span>
-          </div>
-          <div className="text-xs text-stone-600 flex items-start gap-2">
-            <span className="text-amber-500">📜</span>
-            <span>En la novela, Manuel y Teresa la devuelven a la montaña</span>
-          </div>
-        </div>
+      {/* What happened in the novel */}
+      <div className="p-5 bg-amber-50 rounded-2xl border border-amber-200">
+        <h4 className="font-bold text-amber-800 mb-2 text-sm">📖 ¿Qué pasó en la novela?</h4>
+        <p className="text-sm text-amber-900 leading-relaxed">
+          Manuel y Teresa robaron la momia del aeropuerto de Ezeiza y la devolvieron a la montaña.
+          Manuel subió solo primero para cavar el sitio funerario. Luego subieron juntos con el fardo de 35 kilos.
+          Teresa le puso su manta de lana de alpaca y Vera envió un collar de ámbar. Manuel la bajó a la misma tumba
+          donde había dormido durante quinientos años. &ldquo;Muy adentro sintió que los pedazos de su corazón se habían
+          unido. El círculo otra vez estaba cerrado.&rdquo; (p.116)
+        </p>
       </div>
     </div>
   )
 }
 
-/* ─── MAIN PAGE ───────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════
+   MAIN PAGE
+   ═══════════════════════════════════════════════════════════ */
 
 const tabs = [
   { id: 'mapa', label: 'Mapa del Recorrido', icon: '🗺️' },
@@ -1138,18 +1219,18 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState('mapa')
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50 via-stone-50 to-emerald-50">
+    <div className="min-h-screen bg-gradient-to-b from-amber-50 via-stone-50 to-emerald-50 flex flex-col">
       {/* Header */}
-      <header className="bg-gradient-to-r from-amber-900 via-red-900 to-amber-900 text-white py-6 px-4 shadow-lg">
+      <header className="bg-gradient-to-r from-amber-900 via-red-900 to-amber-900 text-white py-5 px-4 shadow-lg">
         <div className="max-w-5xl mx-auto text-center">
-          <h1 className="text-3xl md:text-4xl font-bold mb-2">La Doncella Roja</h1>
-          <p className="text-amber-200 text-sm md:text-base">
+          <h1 className="text-2xl md:text-3xl font-bold mb-1">La Doncella Roja</h1>
+          <p className="text-amber-200 text-xs md:text-sm">
             Sandra Siemens — Una novela sobre el encuentro entre la ciencia y lo sagrado
           </p>
         </div>
       </header>
 
-      {/* Tab navigation */}
+      {/* Tabs */}
       <nav className="sticky top-0 z-10 bg-white/90 backdrop-blur-sm shadow-sm border-b border-stone-200">
         <div className="max-w-5xl mx-auto flex">
           {tabs.map((tab) => (
@@ -1159,7 +1240,7 @@ export default function Home() {
               className={`flex-1 py-3 px-2 text-sm font-medium transition-all flex items-center justify-center gap-2 border-b-2 ${
                 activeTab === tab.id
                   ? 'border-amber-700 text-amber-800 bg-amber-50/50'
-                  : 'border-transparent text-stone-500 hover:text-stone-700 hover:bg-stone-50'
+                  : 'border-transparent text-stone-500 hover:text-stone-700'
               }`}
             >
               <span className="text-lg">{tab.icon}</span>
@@ -1169,15 +1250,15 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* Main content */}
-      <main className="max-w-5xl mx-auto p-4 md:p-6">
+      {/* Content */}
+      <main className="max-w-5xl mx-auto p-4 md:p-6 flex-1 w-full">
         {activeTab === 'mapa' && <MapTab />}
         {activeTab === 'museo' && <MuseumTab />}
         {activeTab === 'decision' && <DecisionTab />}
       </main>
 
       {/* Footer */}
-      <footer className="bg-stone-100 border-t border-stone-200 py-4 px-4 mt-8">
+      <footer className="bg-stone-100 border-t border-stone-200 py-3 px-4">
         <div className="max-w-5xl mx-auto text-center">
           <p className="text-xs text-stone-400">
             Basado en la novela &ldquo;La Doncella Roja&rdquo; de Sandra Siemens — Actividad educativa

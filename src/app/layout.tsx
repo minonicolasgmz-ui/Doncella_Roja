@@ -14,10 +14,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Z.ai Code Scaffold - AI-Powered Development",
-  description: "Modern Next.js scaffold optimized for AI-powered development with Z.ai. Built with TypeScript, Tailwind CSS, and shadcn/ui.",
-  keywords: ["Z.ai", "Next.js", "TypeScript", "Tailwind CSS", "shadcn/ui", "AI development", "React"],
-  authors: [{ name: "Z.ai Team" }],
+  title: "La Doncella Roja — Recorrido Interactivo",
+  description: "Actividad educativa interactiva basada en la novela La Doncella Roja de Sandra Siemens. Mapa del recorrido, museo de piezas y decisión.",
+  keywords: ["La Doncella Roja", "Sandra Siemens", "novela", "educación", "mapa interactivo"],
+  authors: [{ name: "Actividad educativa" }],
   icons: {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
   },
