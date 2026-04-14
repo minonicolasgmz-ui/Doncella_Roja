@@ -118,5 +118,24 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Prevent pull-to-refresh on Android */
+    overscroll-behavior-y: contain;
   }
+}
+
+/* Touch-optimized styles for tablet */
+.leaflet-container {
+  touch-action: auto; /* Allow Leaflet map pan/zoom */
+}
+
+/* Prevent text selection during drag */
+[data-dnd-dragging] {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Smooth scrolling on touch devices */
+.overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
 }

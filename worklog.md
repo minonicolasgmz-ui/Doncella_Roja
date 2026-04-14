@@ -48,3 +48,32 @@ Stage Summary:
 - Map uses real coordinates with Leaflet/OpenStreetMap
 - Museum uses drag-and-drop matching with exact text quotes
 - Decision uses verbatim quotes extracted from OCR
+
+---
+Task ID: 1
+Agent: main
+Task: Optimize La Doncella Roja web app for Android tablet — fix drag-and-drop touch support
+
+Work Log:
+- Read existing page.tsx (1271 lines) — identified @dnd-kit/core using default sensors without TouchSensor
+- Read LeafletMap.tsx, globals.css, package.json to understand full codebase
+- Root cause: @dnd-kit/core only enables MouseSensor + KeyboardSensor by default, NO touch support
+- Rewrote page.tsx with:
+  1. Added TouchSensor + PointerSensor with proper activation constraints (150ms delay for touch, 5px distance for pointer)
+  2. Added DragOverlay for visual feedback during drag on touch devices
+  3. Implemented tap-to-select alternative mode: tap artifact to select, tap moment to place
+  4. Reorganized museum layout from 2-column grid to single-column (artifacts grid on top, moments below) for tablet
+  5. Increased all touch targets: min-h-[44px] to min-h-[60px] for interactive elements
+  6. Added active: states for touch feedback (active:bg-amber-50, active:scale-95)
+  7. Added select-none and touch-action:none to draggable elements
+  8. Added overscroll-behavior-y: contain to prevent pull-to-refresh
+  9. Added -webkit-overflow-scrolling: touch for smooth scroll on iOS/Android
+  10. Increased tab buttons min-h to 52px, timeline items to 56px
+- Updated globals.css with touch-specific CSS rules
+- Lint passes with zero errors
+
+Stage Summary:
+- The museum tab now has two interaction modes: drag-and-drop (with TouchSensor) AND tap-to-select
+- All touch targets meet minimum 44px accessibility guidelines (most are 48-60px)
+- Visual feedback shows which artifact is selected for tap mode
+- DragOverlay provides visual feedback during drag operations

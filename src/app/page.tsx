@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { DndContext, DragEndEvent, useDraggable, useDroppable } from '@dnd-kit/core'
+import { DndContext, DragEndEvent, useDraggable, useDroppable, TouchSensor, PointerSensor, useSensor, useSensors, DragStartEvent, DragOverlay } from '@dnd-kit/core'
 
 /* ═══════════════════════════════════════════════════════════
    DATA — extracted from the OCR text of the novel
@@ -582,8 +582,8 @@ function MapTab() {
     activePhase === 'all' ? journeyStops : journeyStops.filter((s) => s.phase === activePhase)
 
   return (
-    <div className="space-y-5">
-      {/* Phase filters */}
+    <div className="space-y-4">
+      {/* Phase filters — tablet-optimized larger buttons */}
       <div className="flex flex-wrap gap-2 justify-center">
         {phases.map((p) => (
           <button
@@ -592,10 +592,10 @@ function MapTab() {
               setActivePhase(p.key)
               setSelectedStop(null)
             }}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+            className={`px-4 py-2.5 rounded-full text-sm font-medium transition-all min-h-[44px] ${
               activePhase === p.key
                 ? 'text-white shadow-lg'
-                : 'bg-white/80 text-stone-600 hover:bg-white border border-stone-200'
+                : 'bg-white/80 text-stone-600 hover:bg-white border border-stone-200 active:bg-stone-100'
             }`}
             style={activePhase === p.key ? { backgroundColor: p.color } : undefined}
           >
@@ -605,7 +605,7 @@ function MapTab() {
       </div>
 
       {/* Map container */}
-      <div className="rounded-2xl overflow-hidden shadow-lg border border-stone-200" style={{ height: '500px' }}>
+      <div className="rounded-2xl overflow-hidden shadow-lg border border-stone-200" style={{ height: '450px' }}>
         {MapComponent ? (
           <MapComponent
             stops={filteredStops}
@@ -622,9 +622,9 @@ function MapTab() {
         )}
       </div>
 
-      {/* Selected stop detail */}
+      {/* Selected stop detail — larger touch targets */}
       {selectedStop && (
-        <div className="rounded-2xl p-5 shadow-lg border-2 border-amber-600 bg-white animate-in fade-in slide-in-from-bottom-4">
+        <div className="rounded-2xl p-5 shadow-lg border-2 border-amber-600 bg-white">
           <div className="flex items-start gap-3">
             <span className="text-3xl">{selectedStop.icon}</span>
             <div className="flex-1">
@@ -641,19 +641,19 @@ function MapTab() {
         </div>
       )}
 
-      {/* Timeline list */}
-      <div className="space-y-2 max-h-80 overflow-y-auto">
+      {/* Timeline list — larger touch targets for tablet */}
+      <div className="space-y-2 max-h-80 overflow-y-auto -webkit-overflow-scrolling-touch">
         {filteredStops.map((stop, idx) => (
           <button
             key={stop.id}
             onClick={() => setSelectedStop(stop)}
-            className={`w-full text-left p-3 rounded-xl transition-all flex items-center gap-3 ${
+            className={`w-full text-left p-4 rounded-xl transition-all flex items-center gap-3 min-h-[56px] ${
               selectedStop?.id === stop.id
                 ? 'bg-white shadow-md border-2 border-amber-500'
-                : 'bg-white/60 hover:bg-white/90 border border-stone-100'
+                : 'bg-white/60 hover:bg-white/90 border border-stone-100 active:bg-white/80'
             }`}
           >
-            <span className="text-xl">{stop.icon}</span>
+            <span className="text-2xl">{stop.icon}</span>
             <div className="flex-1 min-w-0">
               <span className="font-semibold text-stone-800 text-sm">{stop.name}</span>
               <p className="text-xs text-stone-400">
@@ -672,17 +672,27 @@ function MapTab() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   MUSEUM TAB — Drag and drop with exact text
+   MUSEUM TAB — Touch-optimized drag-and-drop + tap-to-select
    ═══════════════════════════════════════════════════════════ */
 
-function DraggableArtifact({ artifact, disabled }: { artifact: ArtifactItem; disabled: boolean }) {
+function DraggableArtifact({
+  artifact,
+  disabled,
+  isSelected,
+  onTap,
+}: {
+  artifact: ArtifactItem
+  disabled: boolean
+  isSelected: boolean
+  onTap: () => void
+}) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: artifact.id,
     disabled,
   })
   const style = transform
-    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
-    : undefined
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, touchAction: 'none' as const }
+    : { touchAction: 'none' as const }
 
   return (
     <div
@@ -690,19 +700,28 @@ function DraggableArtifact({ artifact, disabled }: { artifact: ArtifactItem; dis
       style={style}
       {...listeners}
       {...attributes}
-      className={`p-3 rounded-xl border-2 cursor-grab active:cursor-grabbing transition-all flex items-center gap-2 ${
+      onClick={(e) => {
+        e.stopPropagation()
+        if (!disabled) onTap()
+      }}
+      className={`p-4 rounded-xl border-2 transition-all flex items-center gap-3 min-h-[60px] select-none ${
         isDragging
           ? 'shadow-2xl z-50 opacity-90 border-amber-400 bg-amber-50 rotate-2 scale-105'
           : disabled
-          ? 'bg-stone-100 border-stone-200 opacity-50 cursor-default'
-          : 'bg-white border-stone-200 hover:border-amber-300 hover:shadow-md'
+          ? 'bg-stone-100 border-stone-200 opacity-50'
+          : isSelected
+          ? 'bg-amber-50 border-amber-400 shadow-lg ring-2 ring-amber-300'
+          : 'bg-white border-stone-200 hover:border-amber-300 hover:shadow-md active:bg-amber-50 active:border-amber-300'
       }`}
     >
       <span className="text-2xl">{artifact.icon}</span>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-stone-800 truncate">{artifact.name}</p>
         <p className="text-xs text-stone-400 truncate">{artifact.shortDesc}</p>
       </div>
+      {!disabled && isSelected && (
+        <span className="text-amber-500 text-lg shrink-0">☝️</span>
+      )}
     </div>
   )
 }
@@ -711,33 +730,46 @@ function DroppableMoment({
   moment,
   matchedArtifacts,
   onShowDetail,
+  isTapTarget,
+  onTapMoment,
 }: {
   moment: DiscoveryMoment
   matchedArtifacts: ArtifactItem[]
   onShowDetail: (a: ArtifactItem) => void
+  isTapTarget: boolean
+  onTapMoment: () => void
 }) {
   const { isOver, setNodeRef } = useDroppable({ id: moment.id })
 
   return (
     <div
       ref={setNodeRef}
-      className={`rounded-2xl p-4 border-2 transition-all ${
-        isOver
-          ? 'border-amber-400 bg-amber-50 shadow-lg scale-[1.01]'
+      onClick={(e) => {
+        e.stopPropagation()
+        onTapMoment()
+      }}
+      className={`rounded-2xl p-4 border-2 transition-all min-h-[80px] ${
+        isOver || isTapTarget
+          ? 'border-amber-400 bg-amber-50 shadow-lg'
           : matchedArtifacts.length > 0
           ? 'border-emerald-300 bg-emerald-50/50'
-          : 'border-dashed border-stone-300 bg-stone-50/50'
+          : 'border-dashed border-stone-300 bg-stone-50/50 active:bg-amber-50 active:border-amber-300'
       }`}
     >
       <div className="flex items-center gap-2 mb-2">
         <span className="text-xl">{moment.icon}</span>
-        <div>
+        <div className="flex-1 min-w-0">
           <h4 className="font-semibold text-stone-800 text-sm">{moment.title}</h4>
           <p className="text-xs text-stone-400">{moment.description}</p>
         </div>
         {matchedArtifacts.length > 0 && (
-          <span className="ml-auto text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
+          <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full shrink-0">
             {matchedArtifacts.length} ✓
+          </span>
+        )}
+        {isTapTarget && (
+          <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full shrink-0 animate-pulse">
+            Tocá acá
           </span>
         )}
       </div>
@@ -748,8 +780,11 @@ function DroppableMoment({
           {matchedArtifacts.map((a) => (
             <button
               key={a.id}
-              onClick={() => onShowDetail(a)}
-              className="w-full text-left p-3 bg-white rounded-xl border border-emerald-200 hover:shadow-md transition-all"
+              onClick={(e) => {
+                e.stopPropagation()
+                onShowDetail(a)
+              }}
+              className="w-full text-left p-3 bg-white rounded-xl border border-emerald-200 hover:shadow-md transition-all min-h-[48px] active:bg-emerald-50"
             >
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-lg">{a.icon}</span>
@@ -769,13 +804,35 @@ function MuseumTab() {
   const [matched, setMatched] = useState<Record<string, string[]>>({})
   const [selectedArtifact, setSelectedArtifact] = useState<ArtifactItem | null>(null)
   const [wrongAttempts, setWrongAttempts] = useState<Record<string, number>>({})
+  const [tappedArtifactId, setTappedArtifactId] = useState<string | null>(null)
+  const [activeDragId, setActiveDragId] = useState<string | null>(null)
+
+  // Configure sensors for touch + pointer
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 150,
+        tolerance: 8,
+      },
+    })
+  )
 
   const allMatchedIds = Object.values(matched).flat()
   const allMatched = allMatchedIds.length
   const totalArtifacts = artifactItems.length
 
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveDragId(event.active.id as string)
+  }, [])
+
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event
+    setActiveDragId(null)
     if (!over) return
 
     const artifactId = active.id as string
@@ -804,78 +861,159 @@ function MuseumTab() {
     return ids.map((id) => artifactItems.find((a) => a.id === id)!).filter(Boolean)
   }
 
+  // Tap-to-select: handle tapping an artifact
+  const handleTapArtifact = (artifactId: string) => {
+    if (isArtifactMatched(artifactId)) return
+    setTappedArtifactId((prev) => (prev === artifactId ? null : artifactId))
+  }
+
+  // Tap-to-select: handle tapping a moment (place the selected artifact)
+  const handleTapMoment = (momentId: string) => {
+    if (!tappedArtifactId) return
+
+    const artifact = artifactItems.find((a) => a.id === tappedArtifactId)
+    if (!artifact) return
+
+    if (artifact.momentId === momentId) {
+      setMatched((prev) => {
+        const current = prev[momentId] || []
+        if (current.includes(tappedArtifactId)) return prev
+        return { ...prev, [momentId]: [...current, tappedArtifactId] }
+      })
+    } else {
+      setWrongAttempts((prev) => ({
+        ...prev,
+        [tappedArtifactId]: (prev[tappedArtifactId] || 0) + 1,
+      }))
+    }
+    setTappedArtifactId(null)
+  }
+
   const resetGame = () => {
     setMatched({})
     setWrongAttempts({})
     setSelectedArtifact(null)
+    setTappedArtifactId(null)
   }
 
+  // Get the artifact being dragged for the overlay
+  const activeDragArtifact = activeDragId
+    ? artifactItems.find((a) => a.id === activeDragId)
+    : null
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* Header */}
       <div className="text-center space-y-2">
-        <h2 className="text-xl font-bold text-stone-800">Museo de Piezas — Arrastrá cada elemento al momento correcto</h2>
+        <h2 className="text-xl font-bold text-stone-800">Museo de Piezas</h2>
         <p className="text-sm text-stone-500">
-          Arrastrá cada pieza al momento de la novela en que aparece. Al acertar, se revelará el fragmento exacto del texto.
+          Tocá una pieza y después tocá el momento donde aparece. También podés arrastrarla.
         </p>
-        <div className="flex items-center justify-center gap-3">
+        <div className="flex items-center justify-center gap-3 flex-wrap">
           <span className="text-sm font-medium text-amber-700">
             {allMatched} / {totalArtifacts} piezas colocadas
           </span>
-          <div className="w-32 h-2 bg-stone-200 rounded-full overflow-hidden">
+          <div className="w-32 h-2.5 bg-stone-200 rounded-full overflow-hidden">
             <div
               className="h-full bg-amber-500 rounded-full transition-all"
               style={{ width: `${(allMatched / totalArtifacts) * 100}%` }}
             />
           </div>
-          <button onClick={resetGame} className="text-xs text-stone-400 hover:text-stone-600 underline">
+          <button
+            onClick={resetGame}
+            className="text-xs text-stone-400 hover:text-stone-600 underline min-h-[44px] px-2 active:text-stone-700"
+          >
             Reiniciar
           </button>
         </div>
+        {/* Tap mode indicator */}
+        {tappedArtifactId && (
+          <div className="bg-amber-100 border border-amber-300 rounded-xl p-3 animate-in fade-in">
+            <p className="text-sm text-amber-800 font-medium">
+              👆 Pieza seleccionada: {artifactItems.find((a) => a.id === tappedArtifactId)?.icon} {artifactItems.find((a) => a.id === tappedArtifactId)?.name}
+            </p>
+            <p className="text-xs text-amber-600 mt-1">Tocá el momento correcto para colocarla, o tocá la pieza de nuevo para deseleccionar</p>
+          </div>
+        )}
       </div>
 
-      <DndContext onDragEnd={handleDragEnd}>
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-          {/* Draggable artifacts */}
-          <div className="lg:col-span-4 space-y-2">
+      <DndContext
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        {/* Single column layout for tablet — pieces on top, moments below */}
+        <div className="space-y-5">
+          {/* Draggable artifacts — horizontal scrollable on tablet */}
+          <div>
             <h3 className="text-sm font-semibold text-stone-600 mb-2">📦 Piezas por colocar</h3>
-            <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
               {artifactItems.map((a) => (
                 <DraggableArtifact
                   key={a.id}
                   artifact={a}
                   disabled={isArtifactMatched(a.id)}
+                  isSelected={tappedArtifactId === a.id}
+                  onTap={() => handleTapArtifact(a.id)}
                 />
               ))}
             </div>
           </div>
 
           {/* Droppable moments */}
-          <div className="lg:col-span-8 space-y-3">
+          <div>
             <h3 className="text-sm font-semibold text-stone-600 mb-2">📖 Momentos de la novela</h3>
-            {discoveryMoments.map((moment) => (
-              <DroppableMoment
-                key={moment.id}
-                moment={moment}
-                matchedArtifacts={getMatchedArtifactsForMoment(moment.id)}
-                onShowDetail={setSelectedArtifact}
-              />
-            ))}
+            <div className="space-y-3">
+              {discoveryMoments.map((moment) => (
+                <DroppableMoment
+                  key={moment.id}
+                  moment={moment}
+                  matchedArtifacts={getMatchedArtifactsForMoment(moment.id)}
+                  onShowDetail={setSelectedArtifact}
+                  isTapTarget={!!tappedArtifactId}
+                  onTapMoment={() => handleTapMoment(moment.id)}
+                />
+              ))}
+            </div>
           </div>
         </div>
+
+        {/* Drag overlay — shows the artifact while dragging */}
+        <DragOverlay>
+          {activeDragArtifact ? (
+            <div className="p-4 rounded-xl border-2 border-amber-400 bg-amber-50 shadow-2xl flex items-center gap-3 min-h-[60px] rotate-2 scale-105 opacity-90">
+              <span className="text-2xl">{activeDragArtifact.icon}</span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-stone-800">{activeDragArtifact.name}</p>
+                <p className="text-xs text-stone-400">{activeDragArtifact.shortDesc}</p>
+              </div>
+            </div>
+          ) : null}
+        </DragOverlay>
       </DndContext>
 
-      {/* Artifact detail modal */}
+      {/* Artifact detail modal — larger for tablet */}
       {selectedArtifact && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setSelectedArtifact(null)}>
-          <div className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl animate-in fade-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+          onClick={() => setSelectedArtifact(null)}
+        >
+          <div
+            className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl max-h-[90vh] overflow-y-auto -webkit-overflow-scrolling-touch"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center gap-3 mb-4">
               <span className="text-4xl">{selectedArtifact.icon}</span>
-              <div>
+              <div className="flex-1 min-w-0">
                 <h3 className="text-lg font-bold text-stone-800">{selectedArtifact.name}</h3>
                 <p className="text-xs text-stone-400">{selectedArtifact.novelPage}</p>
               </div>
-              <button onClick={() => setSelectedArtifact(null)} className="ml-auto text-stone-400 hover:text-stone-600 text-xl">✕</button>
+              <button
+                onClick={() => setSelectedArtifact(null)}
+                className="text-stone-400 hover:text-stone-600 text-xl min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg active:bg-stone-100"
+              >
+                ✕
+              </button>
             </div>
 
             {/* Exact quote */}
@@ -968,7 +1106,7 @@ function DecisionTab() {
   ]
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Introduction */}
       <div className="text-center space-y-3">
         <h2 className="text-2xl font-bold text-stone-800">¿Qué hacer con la Doncella Roja?</h2>
@@ -979,7 +1117,7 @@ function DecisionTab() {
         </p>
       </div>
 
-      {/* Real quotes from the text */}
+      {/* Real quotes from the text — tablet-optimized with larger touch targets */}
       <div className="space-y-4">
         <h3 className="text-lg font-semibold text-stone-700 text-center">
           Fragmentos del corazón de Manuel — Frases reales del texto
@@ -998,13 +1136,13 @@ function DecisionTab() {
                 <button
                   key={q.id}
                   onClick={() => toggleQuote(q.id)}
-                  className={`w-full text-left p-3 rounded-xl transition-all ${
+                  className={`w-full text-left p-4 rounded-xl transition-all min-h-[56px] ${
                     selectedQuotes.includes(q.id)
                       ? 'bg-violet-100 border-2 border-violet-400 shadow'
-                      : 'bg-white/80 border border-stone-200 hover:bg-white'
+                      : 'bg-white/80 border border-stone-200 hover:bg-white active:bg-violet-50'
                   }`}
                 >
-                  <p className="text-xs italic text-stone-700 leading-relaxed">&ldquo;{q.quote}&rdquo;</p>
+                  <p className="text-sm italic text-stone-700 leading-relaxed">&ldquo;{q.quote}&rdquo;</p>
                   <p className="text-xs text-violet-500 mt-1 font-medium">— {q.speaker} ({q.page})</p>
                 </button>
               ))}
@@ -1020,13 +1158,13 @@ function DecisionTab() {
                 <button
                   key={q.id}
                   onClick={() => toggleQuote(q.id)}
-                  className={`w-full text-left p-3 rounded-xl transition-all ${
+                  className={`w-full text-left p-4 rounded-xl transition-all min-h-[56px] ${
                     selectedQuotes.includes(q.id)
                       ? 'bg-emerald-100 border-2 border-emerald-400 shadow'
-                      : 'bg-white/80 border border-stone-200 hover:bg-white'
+                      : 'bg-white/80 border border-stone-200 hover:bg-white active:bg-emerald-50'
                   }`}
                 >
-                  <p className="text-xs italic text-stone-700 leading-relaxed">&ldquo;{q.quote}&rdquo;</p>
+                  <p className="text-sm italic text-stone-700 leading-relaxed">&ldquo;{q.quote}&rdquo;</p>
                   <p className="text-xs text-emerald-500 mt-1 font-medium">— {q.speaker} ({q.page})</p>
                 </button>
               ))}
@@ -1035,15 +1173,15 @@ function DecisionTab() {
         </div>
       </div>
 
-      {/* Two columns: Museum vs Mountain */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Two columns: Museum vs Mountain — larger touch targets */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Museum side */}
         <button
           onClick={() => setChoice('museo')}
           className={`text-left p-5 rounded-2xl transition-all ${
             choice === 'museo'
               ? 'bg-violet-50 border-2 border-violet-500 shadow-xl'
-              : 'bg-white/80 border border-stone-200 hover:shadow-md'
+              : 'bg-white/80 border border-stone-200 hover:shadow-md active:bg-violet-50'
           }`}
         >
           <div className="flex items-center gap-3 mb-3">
@@ -1056,7 +1194,7 @@ function DecisionTab() {
           <div className="space-y-3">
             <div>
               <h4 className="text-xs font-bold text-green-700 mb-1">✅ Ventajas</h4>
-              <ul className="space-y-0.5">
+              <ul className="space-y-1">
                 {museumAdvantages.map((a, i) => (
                   <li key={i} className="text-xs text-stone-600 flex items-start gap-1">
                     <span className="text-green-500">•</span>{a}
@@ -1066,7 +1204,7 @@ function DecisionTab() {
             </div>
             <div>
               <h4 className="text-xs font-bold text-red-700 mb-1">❌ Desventajas</h4>
-              <ul className="space-y-0.5">
+              <ul className="space-y-1">
                 {museumDisadvantages.map((d, i) => (
                   <li key={i} className="text-xs text-stone-600 flex items-start gap-1">
                     <span className="text-red-400">•</span>{d}
@@ -1083,7 +1221,7 @@ function DecisionTab() {
           className={`text-left p-5 rounded-2xl transition-all ${
             choice === 'montaña'
               ? 'bg-emerald-50 border-2 border-emerald-500 shadow-xl'
-              : 'bg-white/80 border border-stone-200 hover:shadow-md'
+              : 'bg-white/80 border border-stone-200 hover:shadow-md active:bg-emerald-50'
           }`}
         >
           <div className="flex items-center gap-3 mb-3">
@@ -1096,7 +1234,7 @@ function DecisionTab() {
           <div className="space-y-3">
             <div>
               <h4 className="text-xs font-bold text-green-700 mb-1">✅ Ventajas</h4>
-              <ul className="space-y-0.5">
+              <ul className="space-y-1">
                 {mountainAdvantages.map((a, i) => (
                   <li key={i} className="text-xs text-stone-600 flex items-start gap-1">
                     <span className="text-green-500">•</span>{a}
@@ -1106,7 +1244,7 @@ function DecisionTab() {
             </div>
             <div>
               <h4 className="text-xs font-bold text-red-700 mb-1">❌ Desventajas</h4>
-              <ul className="space-y-0.5">
+              <ul className="space-y-1">
                 {mountainDisadvantages.map((d, i) => (
                   <li key={i} className="text-xs text-stone-600 flex items-start gap-1">
                     <span className="text-red-400">•</span>{d}
@@ -1118,13 +1256,13 @@ function DecisionTab() {
         </button>
       </div>
 
-      {/* Confirm */}
+      {/* Confirm — larger button for tablet */}
       {choice && !showResult && (
-        <div className="text-center animate-in fade-in">
+        <div className="text-center">
           <button
             onClick={handleConfirm}
-            className={`px-8 py-3 rounded-xl text-white font-bold text-lg shadow-lg transition-all hover:scale-105 ${
-              choice === 'museo' ? 'bg-violet-600 hover:bg-violet-700' : 'bg-emerald-600 hover:bg-emerald-700'
+            className={`px-8 py-4 rounded-xl text-white font-bold text-lg shadow-lg transition-all min-h-[56px] active:scale-95 ${
+              choice === 'museo' ? 'bg-violet-600 hover:bg-violet-700 active:bg-violet-800' : 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800'
             }`}
           >
             Confirmar: {choice === 'museo' ? '🏛️ Exhibir en el Museo' : '⛰️ Devolver a la Montaña'}
@@ -1135,7 +1273,7 @@ function DecisionTab() {
       {/* Result */}
       {showResult && (
         <div
-          className={`rounded-2xl p-8 text-center animate-in fade-in slide-in-from-bottom-4 ${
+          className={`rounded-2xl p-8 text-center ${
             choice === 'museo' ? 'bg-violet-50 border-2 border-violet-300' : 'bg-emerald-50 border-2 border-emerald-300'
           }`}
         >
@@ -1184,7 +1322,10 @@ function DecisionTab() {
             Fragmentos elegidos: {selectedCount}/{totalQuotes} — Corazón{' '}
             {selectedCount >= totalQuotes * 0.7 ? 'casi completo' : selectedCount >= totalQuotes * 0.4 ? 'a medio camino' : 'fragmentado'}
           </p>
-          <button onClick={reset} className="mt-4 px-5 py-2 rounded-xl bg-stone-200 text-stone-600 text-sm hover:bg-stone-300">
+          <button
+            onClick={reset}
+            className="mt-4 px-6 py-3 rounded-xl bg-stone-200 text-stone-600 text-sm hover:bg-stone-300 min-h-[48px] active:bg-stone-400"
+          >
             Volver a elegir
           </button>
         </div>
@@ -1206,7 +1347,7 @@ function DecisionTab() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   MAIN PAGE
+   MAIN PAGE — Tablet-optimized
    ═══════════════════════════════════════════════════════════ */
 
 const tabs = [
@@ -1221,7 +1362,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50 via-stone-50 to-emerald-50 flex flex-col">
       {/* Header */}
-      <header className="bg-gradient-to-r from-amber-900 via-red-900 to-amber-900 text-white py-5 px-4 shadow-lg">
+      <header className="bg-gradient-to-r from-amber-900 via-red-900 to-amber-900 text-white py-4 px-4 shadow-lg">
         <div className="max-w-5xl mx-auto text-center">
           <h1 className="text-2xl md:text-3xl font-bold mb-1">La Doncella Roja</h1>
           <p className="text-amber-200 text-xs md:text-sm">
@@ -1230,21 +1371,21 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Tabs */}
+      {/* Tabs — larger touch targets for tablet */}
       <nav className="sticky top-0 z-10 bg-white/90 backdrop-blur-sm shadow-sm border-b border-stone-200">
         <div className="max-w-5xl mx-auto flex">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 py-3 px-2 text-sm font-medium transition-all flex items-center justify-center gap-2 border-b-2 ${
+              className={`flex-1 py-3.5 px-2 text-sm font-medium transition-all flex items-center justify-center gap-2 border-b-2 min-h-[52px] ${
                 activeTab === tab.id
                   ? 'border-amber-700 text-amber-800 bg-amber-50/50'
-                  : 'border-transparent text-stone-500 hover:text-stone-700'
+                  : 'border-transparent text-stone-500 hover:text-stone-700 active:bg-stone-50'
               }`}
             >
               <span className="text-lg">{tab.icon}</span>
-              <span className="hidden sm:inline">{tab.label}</span>
+              <span className="sm:inline">{tab.label}</span>
             </button>
           ))}
         </div>
