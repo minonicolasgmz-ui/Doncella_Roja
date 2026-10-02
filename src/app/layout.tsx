@@ -18,20 +18,17 @@ export const metadata: Metadata = {
   description: "Actividad educativa interactiva basada en la novela La Doncella Roja de Sandra Siemens. Mapa del recorrido, museo de piezas y decisión.",
   keywords: ["La Doncella Roja", "Sandra Siemens", "novela", "educación", "mapa interactivo"],
   authors: [{ name: "Actividad educativa" }],
-  icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
-  },
   openGraph: {
-    title: "Z.ai Code Scaffold",
-    description: "AI-powered development with modern React stack",
-    url: "https://chat.z.ai",
-    siteName: "Z.ai",
+    title: "La Doncella Roja — Recorrido Interactivo",
+    description: "Actividad educativa interactiva basada en la novela La Doncella Roja de Sandra Siemens. Mapa del recorrido, museo de piezas y decisión.",
+    url: "https://doncella-roja-interactiva.vercel.app/",
+    siteName: "La Doncella Roja — Recorrido Interactivo",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Z.ai Code Scaffold",
-    description: "AI-powered development with modern React stack",
+    title: "La Doncella Roja — Recorrido Interactivo",
+    description: "Actividad educativa interactiva basada en la novela La Doncella Roja de Sandra Siemens. Mapa del recorrido, museo de piezas y decisión.",
   },
 };
 
