@@ -1,7 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { DndContext, DragEndEvent, useDraggable, useDroppable, TouchSensor, PointerSensor, useSensor, useSensors, DragStartEvent, DragOverlay } from '@dnd-kit/core'
+import { useState, type KeyboardEvent } from 'react'
+import dynamic from 'next/dynamic'
+import { ArrowDown, ArrowRight, BookOpen, Check, Compass, Heart, MapPin, Mountain, Route, Sparkles } from 'lucide-react'
+import ExpeditionArt from './ExpeditionArt'
+import MuseumActivity from './MuseumActivity'
 
 /* ═══════════════════════════════════════════════════════════
    DATA — extracted from the OCR text of the novel
@@ -559,484 +562,75 @@ const mountainQuotes = [
    MAP TAB — Real map with Leaflet
    ═══════════════════════════════════════════════════════════ */
 
+const MapComponent = dynamic(() => import('./LeafletMap'), {
+  ssr: false,
+  loading: () => <div className="map-loading"><Compass size={28} className="loading-compass" /><span>Cargando mapa...</span></div>,
+})
+
+const phases = [
+  { key: 'all', label: 'Todo el recorrido', color: '#294b3f' },
+  { key: 'ida', label: 'La subida', color: '#b48a50' },
+  { key: 'descubrimiento', label: 'El descubrimiento', color: '#a84232' },
+  { key: 'regreso', label: 'Viaje al exterior', color: '#71618a' },
+  { key: 'retorno', label: 'El retorno', color: '#294b3f' },
+]
+
 function MapTab() {
-  const [MapComponent, setMapComponent] = useState<React.ComponentType | null>(null)
   const [selectedStop, setSelectedStop] = useState<JourneyStop | null>(null)
-  const [activePhase, setActivePhase] = useState<string>('all')
-
-  useEffect(() => {
-    import('./LeafletMap').then((mod) => {
-      setMapComponent(() => mod.default)
-    })
-  }, [])
-
-  const phases = [
-    { key: 'all', label: 'Todo el recorrido', color: '#92400e' },
-    { key: 'ida', label: 'La subida', color: '#b45309' },
-    { key: 'descubrimiento', label: 'El descubrimiento', color: '#dc2626' },
-    { key: 'regreso', label: 'Viaje al exterior', color: '#7c3aed' },
-    { key: 'retorno', label: 'El retorno', color: '#059669' },
-  ]
-
-  const filteredStops =
-    activePhase === 'all' ? journeyStops : journeyStops.filter((s) => s.phase === activePhase)
+  const [activePhase, setActivePhase] = useState('all')
+  const filteredStops = activePhase === 'all' ? journeyStops : journeyStops.filter((s) => s.phase === activePhase)
 
   return (
-    <div className="space-y-4">
-      {/* Phase filters — tablet-optimized larger buttons */}
-      <div className="flex flex-wrap gap-2 justify-center">
-        {phases.map((p) => (
-          <button
-            key={p.key}
-            onClick={() => {
-              setActivePhase(p.key)
-              setSelectedStop(null)
-            }}
-            className={`px-4 py-2.5 rounded-full text-sm font-medium transition-all min-h-[44px] ${
-              activePhase === p.key
-                ? 'text-white shadow-lg'
-                : 'bg-white/80 text-stone-600 hover:bg-white border border-stone-200 active:bg-stone-100'
-            }`}
-            style={activePhase === p.key ? { backgroundColor: p.color } : undefined}
-          >
-            {p.label}
+    <div className="map-activity">
+      <div className="activity-intro">
+        <div><p className="eyebrow">01 / EL RECORRIDO</p><h2 className="section-title">Mapa del Recorrido</h2></div>
+        <span className="activity-count"><Route size={16} />{journeyStops.length} paradas <span>·</span> 4 etapas</span>
+      </div>
+      <div className="phase-filters" aria-label="Filtrar etapas del recorrido">
+        {phases.map((phase) => (
+          <button key={phase.key} aria-pressed={activePhase === phase.key}
+            onClick={() => { setActivePhase(phase.key); setSelectedStop(null) }}
+            className={activePhase === phase.key ? 'phase-filter is-active' : 'phase-filter'}
+            style={{ '--phase-color': phase.color } as React.CSSProperties}>
+            <span className="phase-dot" />{phase.label}
           </button>
         ))}
       </div>
-
-      {/* Map container */}
-      <div className="rounded-2xl overflow-hidden shadow-lg border border-stone-200" style={{ height: '450px' }}>
-        {MapComponent ? (
-          <MapComponent
-            stops={filteredStops}
-            selectedStop={selectedStop}
-            onSelectStop={setSelectedStop}
-            activePhase={activePhase}
-          />
-        ) : (
-          <div className="h-full flex items-center justify-center bg-stone-100">
-            <div className="text-stone-400 flex items-center gap-2">
-              <span className="animate-spin">⏳</span> Cargando mapa...
-            </div>
+      <div className="journey-workspace">
+        <div className="journey-map panel">
+          <div className="map-panel-heading"><span><Compass size={16} /> La Doncella Roja</span><span>MAPA INTERACTIVO</span></div>
+          <div className="map-canvas">
+            <MapComponent stops={filteredStops} selectedStop={selectedStop} onSelectStop={setSelectedStop} activePhase={activePhase} />
           </div>
-        )}
-      </div>
-
-      {/* Selected stop detail — larger touch targets */}
-      {selectedStop && (
-        <div className="rounded-2xl p-5 shadow-lg border-2 border-amber-600 bg-white">
-          <div className="flex items-start gap-3">
-            <span className="text-3xl">{selectedStop.icon}</span>
-            <div className="flex-1">
-              <h3 className="text-lg font-bold text-stone-800">{selectedStop.name}</h3>
-              <p className="text-sm text-stone-500 mb-2">
-                {selectedStop.altitude} &middot; {selectedStop.date}
-                {selectedStop.distanceFromPrev && (
-                  <> &middot; 📏 {selectedStop.distanceFromPrev}</>
-                )}
-              </p>
-              <p className="text-stone-700 text-sm leading-relaxed">{selectedStop.description}</p>
-            </div>
-          </div>
+          <div className="map-panel-footer"><MapPin size={14} /><span>Elegí un punto del mapa para explorar el recorrido.</span></div>
         </div>
-      )}
-
-      {/* Timeline list — larger touch targets for tablet */}
-      <div className="space-y-2 max-h-80 overflow-y-auto -webkit-overflow-scrolling-touch">
-        {filteredStops.map((stop, idx) => (
-          <button
-            key={stop.id}
-            onClick={() => setSelectedStop(stop)}
-            className={`w-full text-left p-4 rounded-xl transition-all flex items-center gap-3 min-h-[56px] ${
-              selectedStop?.id === stop.id
-                ? 'bg-white shadow-md border-2 border-amber-500'
-                : 'bg-white/60 hover:bg-white/90 border border-stone-100 active:bg-white/80'
-            }`}
-          >
-            <span className="text-2xl">{stop.icon}</span>
-            <div className="flex-1 min-w-0">
-              <span className="font-semibold text-stone-800 text-sm">{stop.name}</span>
-              <p className="text-xs text-stone-400">
-                {stop.altitude} &middot; {stop.date}
-                {stop.distanceFromPrev && <> &middot; {stop.distanceFromPrev}</>}
-              </p>
-            </div>
-            {idx > 0 && stop.distanceFromPrev && (
-              <span className="text-xs text-amber-600 font-medium shrink-0">↑ {stop.distanceFromPrev}</span>
-            )}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════════
-   MUSEUM TAB — Touch-optimized drag-and-drop + tap-to-select
-   ═══════════════════════════════════════════════════════════ */
-
-function DraggableArtifact({
-  artifact,
-  disabled,
-  isSelected,
-  onTap,
-}: {
-  artifact: ArtifactItem
-  disabled: boolean
-  isSelected: boolean
-  onTap: () => void
-}) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: artifact.id,
-    disabled,
-  })
-  const style = transform
-    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, touchAction: 'none' as const }
-    : { touchAction: 'none' as const }
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...listeners}
-      {...attributes}
-      onClick={(e) => {
-        e.stopPropagation()
-        if (!disabled) onTap()
-      }}
-      className={`p-4 rounded-xl border-2 transition-all flex items-center gap-3 min-h-[60px] select-none ${
-        isDragging
-          ? 'shadow-2xl z-50 opacity-90 border-amber-400 bg-amber-50 rotate-2 scale-105'
-          : disabled
-          ? 'bg-stone-100 border-stone-200 opacity-50'
-          : isSelected
-          ? 'bg-amber-50 border-amber-400 shadow-lg ring-2 ring-amber-300'
-          : 'bg-white border-stone-200 hover:border-amber-300 hover:shadow-md active:bg-amber-50 active:border-amber-300'
-      }`}
-    >
-      <span className="text-2xl">{artifact.icon}</span>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-stone-800 truncate">{artifact.name}</p>
-        <p className="text-xs text-stone-400 truncate">{artifact.shortDesc}</p>
-      </div>
-      {!disabled && isSelected && (
-        <span className="text-amber-500 text-lg shrink-0">☝️</span>
-      )}
-    </div>
-  )
-}
-
-function DroppableMoment({
-  moment,
-  matchedArtifacts,
-  onShowDetail,
-  isTapTarget,
-  onTapMoment,
-}: {
-  moment: DiscoveryMoment
-  matchedArtifacts: ArtifactItem[]
-  onShowDetail: (a: ArtifactItem) => void
-  isTapTarget: boolean
-  onTapMoment: () => void
-}) {
-  const { isOver, setNodeRef } = useDroppable({ id: moment.id })
-
-  return (
-    <div
-      ref={setNodeRef}
-      onClick={(e) => {
-        e.stopPropagation()
-        onTapMoment()
-      }}
-      className={`rounded-2xl p-4 border-2 transition-all min-h-[80px] ${
-        isOver || isTapTarget
-          ? 'border-amber-400 bg-amber-50 shadow-lg'
-          : matchedArtifacts.length > 0
-          ? 'border-emerald-300 bg-emerald-50/50'
-          : 'border-dashed border-stone-300 bg-stone-50/50 active:bg-amber-50 active:border-amber-300'
-      }`}
-    >
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-xl">{moment.icon}</span>
-        <div className="flex-1 min-w-0">
-          <h4 className="font-semibold text-stone-800 text-sm">{moment.title}</h4>
-          <p className="text-xs text-stone-400">{moment.description}</p>
-        </div>
-        {matchedArtifacts.length > 0 && (
-          <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full shrink-0">
-            {matchedArtifacts.length} ✓
-          </span>
-        )}
-        {isTapTarget && (
-          <span className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full shrink-0 animate-pulse">
-            Tocá acá
-          </span>
-        )}
-      </div>
-
-      {/* Matched artifacts */}
-      {matchedArtifacts.length > 0 && (
-        <div className="space-y-2 mt-3">
-          {matchedArtifacts.map((a) => (
-            <button
-              key={a.id}
-              onClick={(e) => {
-                e.stopPropagation()
-                onShowDetail(a)
-              }}
-              className="w-full text-left p-3 bg-white rounded-xl border border-emerald-200 hover:shadow-md transition-all min-h-[48px] active:bg-emerald-50"
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-lg">{a.icon}</span>
-                <span className="text-sm font-semibold text-stone-800">{a.name}</span>
-                <span className="text-xs text-stone-400 ml-auto">{a.novelPage}</span>
-              </div>
-              <p className="text-xs italic text-stone-500 line-clamp-1">{a.exactQuote.slice(0, 80)}...</p>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function MuseumTab() {
-  const [matched, setMatched] = useState<Record<string, string[]>>({})
-  const [selectedArtifact, setSelectedArtifact] = useState<ArtifactItem | null>(null)
-  const [wrongAttempts, setWrongAttempts] = useState<Record<string, number>>({})
-  const [tappedArtifactId, setTappedArtifactId] = useState<string | null>(null)
-  const [activeDragId, setActiveDragId] = useState<string | null>(null)
-
-  // Configure sensors for touch + pointer
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 5,
-      },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 150,
-        tolerance: 8,
-      },
-    })
-  )
-
-  const allMatchedIds = Object.values(matched).flat()
-  const allMatched = allMatchedIds.length
-  const totalArtifacts = artifactItems.length
-
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    setActiveDragId(event.active.id as string)
-  }, [])
-
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
-    const { active, over } = event
-    setActiveDragId(null)
-    if (!over) return
-
-    const artifactId = active.id as string
-    const momentId = over.id as string
-    const artifact = artifactItems.find((a) => a.id === artifactId)
-    if (!artifact) return
-
-    if (artifact.momentId === momentId) {
-      setMatched((prev) => {
-        const current = prev[momentId] || []
-        if (current.includes(artifactId)) return prev
-        return { ...prev, [momentId]: [...current, artifactId] }
-      })
-    } else {
-      setWrongAttempts((prev) => ({
-        ...prev,
-        [artifactId]: (prev[artifactId] || 0) + 1,
-      }))
-    }
-  }, [])
-
-  const isArtifactMatched = (id: string) => allMatchedIds.includes(id)
-
-  const getMatchedArtifactsForMoment = (momentId: string) => {
-    const ids = matched[momentId] || []
-    return ids.map((id) => artifactItems.find((a) => a.id === id)!).filter(Boolean)
-  }
-
-  // Tap-to-select: handle tapping an artifact
-  const handleTapArtifact = (artifactId: string) => {
-    if (isArtifactMatched(artifactId)) return
-    setTappedArtifactId((prev) => (prev === artifactId ? null : artifactId))
-  }
-
-  // Tap-to-select: handle tapping a moment (place the selected artifact)
-  const handleTapMoment = (momentId: string) => {
-    if (!tappedArtifactId) return
-
-    const artifact = artifactItems.find((a) => a.id === tappedArtifactId)
-    if (!artifact) return
-
-    if (artifact.momentId === momentId) {
-      setMatched((prev) => {
-        const current = prev[momentId] || []
-        if (current.includes(tappedArtifactId)) return prev
-        return { ...prev, [momentId]: [...current, tappedArtifactId] }
-      })
-    } else {
-      setWrongAttempts((prev) => ({
-        ...prev,
-        [tappedArtifactId]: (prev[tappedArtifactId] || 0) + 1,
-      }))
-    }
-    setTappedArtifactId(null)
-  }
-
-  const resetGame = () => {
-    setMatched({})
-    setWrongAttempts({})
-    setSelectedArtifact(null)
-    setTappedArtifactId(null)
-  }
-
-  // Get the artifact being dragged for the overlay
-  const activeDragArtifact = activeDragId
-    ? artifactItems.find((a) => a.id === activeDragId)
-    : null
-
-  return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="text-center space-y-2">
-        <h2 className="text-xl font-bold text-stone-800">Museo de Piezas</h2>
-        <p className="text-sm text-stone-500">
-          Tocá una pieza y después tocá el momento donde aparece. También podés arrastrarla.
-        </p>
-        <div className="flex items-center justify-center gap-3 flex-wrap">
-          <span className="text-sm font-medium text-amber-700">
-            {allMatched} / {totalArtifacts} piezas colocadas
-          </span>
-          <div className="w-32 h-2.5 bg-stone-200 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-amber-500 rounded-full transition-all"
-              style={{ width: `${(allMatched / totalArtifacts) * 100}%` }}
-            />
-          </div>
-          <button
-            onClick={resetGame}
-            className="text-xs text-stone-400 hover:text-stone-600 underline min-h-[44px] px-2 active:text-stone-700"
-          >
-            Reiniciar
-          </button>
-        </div>
-        {/* Tap mode indicator */}
-        {tappedArtifactId && (
-          <div className="bg-amber-100 border border-amber-300 rounded-xl p-3 animate-in fade-in">
-            <p className="text-sm text-amber-800 font-medium">
-              👆 Pieza seleccionada: {artifactItems.find((a) => a.id === tappedArtifactId)?.icon} {artifactItems.find((a) => a.id === tappedArtifactId)?.name}
-            </p>
-            <p className="text-xs text-amber-600 mt-1">Tocá el momento correcto para colocarla, o tocá la pieza de nuevo para deseleccionar</p>
-          </div>
-        )}
-      </div>
-
-      <DndContext
-        sensors={sensors}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        {/* Single column layout for tablet — pieces on top, moments below */}
-        <div className="space-y-5">
-          {/* Draggable artifacts — horizontal scrollable on tablet */}
-          <div>
-            <h3 className="text-sm font-semibold text-stone-600 mb-2">📦 Piezas por colocar</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-              {artifactItems.map((a) => (
-                <DraggableArtifact
-                  key={a.id}
-                  artifact={a}
-                  disabled={isArtifactMatched(a.id)}
-                  isSelected={tappedArtifactId === a.id}
-                  onTap={() => handleTapArtifact(a.id)}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Droppable moments */}
-          <div>
-            <h3 className="text-sm font-semibold text-stone-600 mb-2">📖 Momentos de la novela</h3>
-            <div className="space-y-3">
-              {discoveryMoments.map((moment) => (
-                <DroppableMoment
-                  key={moment.id}
-                  moment={moment}
-                  matchedArtifacts={getMatchedArtifactsForMoment(moment.id)}
-                  onShowDetail={setSelectedArtifact}
-                  isTapTarget={!!tappedArtifactId}
-                  onTapMoment={() => handleTapMoment(moment.id)}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Drag overlay — shows the artifact while dragging */}
-        <DragOverlay>
-          {activeDragArtifact ? (
-            <div className="p-4 rounded-xl border-2 border-amber-400 bg-amber-50 shadow-2xl flex items-center gap-3 min-h-[60px] rotate-2 scale-105 opacity-90">
-              <span className="text-2xl">{activeDragArtifact.icon}</span>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-stone-800">{activeDragArtifact.name}</p>
-                <p className="text-xs text-stone-400">{activeDragArtifact.shortDesc}</p>
-              </div>
-            </div>
-          ) : null}
-        </DragOverlay>
-      </DndContext>
-
-      {/* Artifact detail modal — larger for tablet */}
-      {selectedArtifact && (
-        <div
-          className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
-          onClick={() => setSelectedArtifact(null)}
-        >
-          <div
-            className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl max-h-[90vh] overflow-y-auto -webkit-overflow-scrolling-touch"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-4xl">{selectedArtifact.icon}</span>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-bold text-stone-800">{selectedArtifact.name}</h3>
-                <p className="text-xs text-stone-400">{selectedArtifact.novelPage}</p>
-              </div>
-              <button
-                onClick={() => setSelectedArtifact(null)}
-                className="text-stone-400 hover:text-stone-600 text-xl min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg active:bg-stone-100"
-              >
-                ✕
+        <aside className="journey-stops panel" aria-label="Paradas del recorrido">
+          <div className="stops-heading"><h3>Paradas del recorrido</h3><span>{filteredStops.length.toString().padStart(2, '0')}</span></div>
+          <div className="stop-list">
+            {filteredStops.map((stop) => (
+              <button key={stop.id} onClick={() => setSelectedStop(stop)} aria-pressed={selectedStop?.id === stop.id}
+                className={selectedStop?.id === stop.id ? 'stop-card is-selected' : 'stop-card'}>
+                <span className="stop-number" style={{ '--phase-color': phases.find((phase) => phase.key === stop.phase)?.color } as React.CSSProperties}>{stop.id.toString().padStart(2, '0')}</span>
+                <span className="stop-content"><strong>{stop.name}</strong><span>{stop.altitude} <span className="stop-separator">/</span> {stop.date}</span>
+                  {stop.distanceFromPrev && <small>{stop.distanceFromPrev}</small>}
+                </span>
+                <ArrowRight size={14} className="stop-arrow" />
               </button>
-            </div>
-
-            {/* Exact quote */}
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
-              <h4 className="text-xs font-bold text-amber-700 mb-1">📜 Fragmento exacto de la novela</h4>
-              <p className="text-sm italic text-amber-900 leading-relaxed">&ldquo;{selectedArtifact.exactQuote}&rdquo;</p>
-            </div>
-
-            {/* How it ended in the burial */}
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-              <h4 className="text-xs font-bold text-emerald-700 mb-1">🔮 Cómo terminó en el entierro de la Doncella</h4>
-              <p className="text-sm text-emerald-900 leading-relaxed">{selectedArtifact.howItEnded}</p>
-            </div>
-
-            {/* Image placeholder */}
-            <div className="mt-4 h-32 bg-gradient-to-br from-amber-50 to-stone-100 rounded-xl flex items-center justify-center border-2 border-dashed border-amber-300">
-              <div className="text-center">
-                <span className="text-3xl">{selectedArtifact.icon}</span>
-                <p className="text-xs text-amber-500 mt-1">Espacio para agregar imagen</p>
-              </div>
-            </div>
+            ))}
           </div>
-        </div>
+        </aside>
+      </div>
+      {selectedStop ? (
+        <article className="stop-detail panel" aria-live="polite">
+          <div className="detail-marker" aria-hidden="true">{selectedStop.icon}</div>
+          <div><p className="eyebrow">PARADA {selectedStop.id.toString().padStart(2, '0')} / {journeyStops.length}</p>
+            <h3>{selectedStop.name}</h3>
+            <div className="detail-meta"><span><Mountain size={14} />{selectedStop.altitude}</span><span>{selectedStop.date}</span>{selectedStop.distanceFromPrev && <span><Route size={14} />{selectedStop.distanceFromPrev}</span>}</div>
+            <p className="detail-description">{selectedStop.description}</p>
+          </div>
+        </article>
+      ) : (
+        <div className="journey-hint"><BookOpen size={18} /><p>Elegí una parada del recorrido para leer su historia.</p><ArrowDown size={16} /></div>
       )}
     </div>
   )
@@ -1106,11 +700,12 @@ function DecisionTab() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="decision-activity space-y-8">
       {/* Introduction */}
-      <div className="text-center space-y-3">
-        <h2 className="text-2xl font-bold text-stone-800">¿Qué hacer con la Doncella Roja?</h2>
-        <p className="text-stone-600 max-w-2xl mx-auto leading-relaxed text-sm">
+      <div className="decision-intro">
+        <p className="eyebrow">03 / TU DECISIÓN</p>
+        <h2 className="section-title">¿Qué hacer con la Doncella Roja?</h2>
+        <p className="decision-description body-copy">
           Manuel está dividido. Su corazón se ha partido en pedazos. De un lado, Vera y la ciencia;
           del otro, Teresa y las comunidades. Leé las frases reales del texto y elegí los fragmentos
           del corazón de Manuel que resuenan con tu postura. Después, tomá una decisión.
@@ -1118,17 +713,17 @@ function DecisionTab() {
       </div>
 
       {/* Real quotes from the text — tablet-optimized with larger touch targets */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-stone-700 text-center">
+      <section className="decision-fragments">
+        <div className="fragments-heading"><h3>
           Fragmentos del corazón de Manuel — Frases reales del texto
         </h3>
-        <p className="text-xs text-stone-500 text-center">
+        <p className="selection-count" aria-live="polite">
           Elegí los fragmentos que te convencen ({selectedCount}/{totalQuotes})
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        </p></div>
+        <div className="quote-columns">
           {/* Museum quotes */}
           <div>
-            <h4 className="text-sm font-bold text-violet-700 mb-2 flex items-center gap-1">
+            <h4 className="quote-column-heading science-heading">
               🏛️ La postura de Vera y la ciencia
             </h4>
             <div className="space-y-2">
@@ -1136,12 +731,14 @@ function DecisionTab() {
                 <button
                   key={q.id}
                   onClick={() => toggleQuote(q.id)}
-                  className={`w-full text-left p-4 rounded-xl transition-all min-h-[56px] ${
+                  aria-pressed={selectedQuotes.includes(q.id)}
+                  className={`quote-card w-full text-left p-4 rounded-xl transition-all min-h-[56px] ${
                     selectedQuotes.includes(q.id)
                       ? 'bg-violet-100 border-2 border-violet-400 shadow'
                       : 'bg-white/80 border border-stone-200 hover:bg-white active:bg-violet-50'
                   }`}
                 >
+                  <span className="quote-select-mark" aria-hidden="true">{selectedQuotes.includes(q.id) ? <Check size={13} /> : <span />}</span>
                   <p className="text-sm italic text-stone-700 leading-relaxed">&ldquo;{q.quote}&rdquo;</p>
                   <p className="text-xs text-violet-500 mt-1 font-medium">— {q.speaker} ({q.page})</p>
                 </button>
@@ -1150,7 +747,7 @@ function DecisionTab() {
           </div>
           {/* Mountain quotes */}
           <div>
-            <h4 className="text-sm font-bold text-emerald-700 mb-2 flex items-center gap-1">
+            <h4 className="quote-column-heading mountain-heading">
               ⛰️ La postura de Teresa y las comunidades
             </h4>
             <div className="space-y-2">
@@ -1158,12 +755,14 @@ function DecisionTab() {
                 <button
                   key={q.id}
                   onClick={() => toggleQuote(q.id)}
-                  className={`w-full text-left p-4 rounded-xl transition-all min-h-[56px] ${
+                  aria-pressed={selectedQuotes.includes(q.id)}
+                  className={`quote-card w-full text-left p-4 rounded-xl transition-all min-h-[56px] ${
                     selectedQuotes.includes(q.id)
                       ? 'bg-emerald-100 border-2 border-emerald-400 shadow'
                       : 'bg-white/80 border border-stone-200 hover:bg-white active:bg-emerald-50'
                   }`}
                 >
+                  <span className="quote-select-mark" aria-hidden="true">{selectedQuotes.includes(q.id) ? <Check size={13} /> : <span />}</span>
                   <p className="text-sm italic text-stone-700 leading-relaxed">&ldquo;{q.quote}&rdquo;</p>
                   <p className="text-xs text-emerald-500 mt-1 font-medium">— {q.speaker} ({q.page})</p>
                 </button>
@@ -1171,14 +770,15 @@ function DecisionTab() {
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Two columns: Museum vs Mountain — larger touch targets */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="decision-choices grid grid-cols-1 md:grid-cols-2 gap-5">
         {/* Museum side */}
         <button
-          onClick={() => setChoice('museo')}
-          className={`text-left p-5 rounded-2xl transition-all ${
+          onClick={() => { setChoice('museo'); setShowResult(false) }}
+          aria-pressed={choice === 'museo'}
+          className={`choice-card text-left p-5 rounded-2xl transition-all ${
             choice === 'museo'
               ? 'bg-violet-50 border-2 border-violet-500 shadow-xl'
               : 'bg-white/80 border border-stone-200 hover:shadow-md active:bg-violet-50'
@@ -1196,7 +796,7 @@ function DecisionTab() {
               <h4 className="text-xs font-bold text-green-700 mb-1">✅ Ventajas</h4>
               <ul className="space-y-1">
                 {museumAdvantages.map((a, i) => (
-                  <li key={i} className="text-xs text-stone-600 flex items-start gap-1">
+                  <li key={i} className="text-sm text-stone-600 flex items-start gap-2">
                     <span className="text-green-500">•</span>{a}
                   </li>
                 ))}
@@ -1206,7 +806,7 @@ function DecisionTab() {
               <h4 className="text-xs font-bold text-red-700 mb-1">❌ Desventajas</h4>
               <ul className="space-y-1">
                 {museumDisadvantages.map((d, i) => (
-                  <li key={i} className="text-xs text-stone-600 flex items-start gap-1">
+                  <li key={i} className="text-sm text-stone-600 flex items-start gap-2">
                     <span className="text-red-400">•</span>{d}
                   </li>
                 ))}
@@ -1217,8 +817,9 @@ function DecisionTab() {
 
         {/* Mountain side */}
         <button
-          onClick={() => setChoice('montaña')}
-          className={`text-left p-5 rounded-2xl transition-all ${
+          onClick={() => { setChoice('montaña'); setShowResult(false) }}
+          aria-pressed={choice === 'montaña'}
+          className={`choice-card text-left p-5 rounded-2xl transition-all ${
             choice === 'montaña'
               ? 'bg-emerald-50 border-2 border-emerald-500 shadow-xl'
               : 'bg-white/80 border border-stone-200 hover:shadow-md active:bg-emerald-50'
@@ -1236,7 +837,7 @@ function DecisionTab() {
               <h4 className="text-xs font-bold text-green-700 mb-1">✅ Ventajas</h4>
               <ul className="space-y-1">
                 {mountainAdvantages.map((a, i) => (
-                  <li key={i} className="text-xs text-stone-600 flex items-start gap-1">
+                  <li key={i} className="text-sm text-stone-600 flex items-start gap-2">
                     <span className="text-green-500">•</span>{a}
                   </li>
                 ))}
@@ -1246,7 +847,7 @@ function DecisionTab() {
               <h4 className="text-xs font-bold text-red-700 mb-1">❌ Desventajas</h4>
               <ul className="space-y-1">
                 {mountainDisadvantages.map((d, i) => (
-                  <li key={i} className="text-xs text-stone-600 flex items-start gap-1">
+                  <li key={i} className="text-sm text-stone-600 flex items-start gap-2">
                     <span className="text-red-400">•</span>{d}
                   </li>
                 ))}
@@ -1261,7 +862,7 @@ function DecisionTab() {
         <div className="text-center">
           <button
             onClick={handleConfirm}
-            className={`px-8 py-4 rounded-xl text-white font-bold text-lg shadow-lg transition-all min-h-[56px] active:scale-95 ${
+            className={`confirm-choice px-8 py-4 rounded-xl text-white font-bold text-lg shadow-lg transition-all min-h-[56px] active:scale-95 ${
               choice === 'museo' ? 'bg-violet-600 hover:bg-violet-700 active:bg-violet-800' : 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800'
             }`}
           >
@@ -1273,7 +874,7 @@ function DecisionTab() {
       {/* Result */}
       {showResult && (
         <div
-          className={`rounded-2xl p-8 text-center ${
+          role="status" className={`decision-result rounded-2xl p-8 text-center ${
             choice === 'museo' ? 'bg-violet-50 border-2 border-violet-300' : 'bg-emerald-50 border-2 border-emerald-300'
           }`}
         >
@@ -1332,7 +933,7 @@ function DecisionTab() {
       )}
 
       {/* What happened in the novel */}
-      <div className="p-5 bg-amber-50 rounded-2xl border border-amber-200">
+      <div className="novel-ending p-5 bg-amber-50 rounded-2xl border border-amber-200">
         <h4 className="font-bold text-amber-800 mb-2 text-sm">📖 ¿Qué pasó en la novela?</h4>
         <p className="text-sm text-amber-900 leading-relaxed">
           Manuel y Teresa robaron la momia del aeropuerto de Ezeiza y la devolvieron a la montaña.
@@ -1351,61 +952,84 @@ function DecisionTab() {
    ═══════════════════════════════════════════════════════════ */
 
 const tabs = [
-  { id: 'mapa', label: 'Mapa del Recorrido', icon: '🗺️' },
-  { id: 'museo', label: 'Museo de Piezas', icon: '🏛️' },
-  { id: 'decision', label: '¿Qué hacer?', icon: '❤️' },
+  { id: 'mapa', label: 'Mapa del Recorrido', Icon: Compass, count: journeyStops.length + ' paradas' },
+  { id: 'museo', label: 'Museo de Piezas', Icon: Sparkles, count: artifactItems.length + ' piezas' },
+  { id: 'decision', label: '¿Qué hacer?', Icon: Heart, count: (museumQuotes.length + mountainQuotes.length) + ' fragmentos' },
 ]
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('mapa')
 
+  const activateTab = (id: string) => {
+    const activities = document.getElementById('actividades')
+    const navigationIsSticky = activities && activities.getBoundingClientRect().top <= 0
+    setActiveTab(id)
+    if (navigationIsSticky) {
+      requestAnimationFrame(() => activities.scrollIntoView({
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+        block: 'start',
+      }))
+    }
+  }
+
+  const handleTabKey = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    let nextIndex = index
+    if (event.key === 'ArrowRight') nextIndex = (index + 1) % tabs.length
+    else if (event.key === 'ArrowLeft') nextIndex = (index + tabs.length - 1) % tabs.length
+    else if (event.key === 'Home') nextIndex = 0
+    else if (event.key === 'End') nextIndex = tabs.length - 1
+    else return
+    event.preventDefault()
+    activateTab(tabs[nextIndex].id)
+    document.getElementById('tab-' + tabs[nextIndex].id)?.focus({ preventScroll: true })
+  }
+
+  const explore = () => {
+    setActiveTab('mapa')
+    document.getElementById('actividades')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' })
+    document.getElementById('tab-mapa')?.focus({ preventScroll: true })
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50 via-stone-50 to-emerald-50 flex flex-col">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-amber-900 via-red-900 to-amber-900 text-white py-4 px-4 shadow-lg">
-        <div className="max-w-5xl mx-auto text-center">
-          <h1 className="text-2xl md:text-3xl font-bold mb-1">La Doncella Roja</h1>
-          <p className="text-amber-200 text-xs md:text-sm">
-            Sandra Siemens — Una novela sobre el encuentro entre la ciencia y lo sagrado
-          </p>
+    <div className="app-shell" id="inicio">
+      <a className="skip-link" href="#actividades">Ir a las actividades</a>
+      <header className="site-header">
+        <div className="page-width header-inner">
+          <a href="#inicio" className="brand" aria-label="La Doncella Roja, inicio"><span className="brand-symbol"><BookOpen size={21} strokeWidth={1.5} /></span><span>La Doncella Roja<small>RECORRIDO INTERACTIVO</small></span></a>
+          <span className="school-badge"><span className="badge-dot" />LITERATURA <span className="badge-divider">/</span> 5.º AÑO</span>
         </div>
       </header>
-
-      {/* Tabs — larger touch targets for tablet */}
-      <nav className="sticky top-0 z-10 bg-white/90 backdrop-blur-sm shadow-sm border-b border-stone-200">
-        <div className="max-w-5xl mx-auto flex">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 py-3.5 px-2 text-sm font-medium transition-all flex items-center justify-center gap-2 border-b-2 min-h-[52px] ${
-                activeTab === tab.id
-                  ? 'border-amber-700 text-amber-800 bg-amber-50/50'
-                  : 'border-transparent text-stone-500 hover:text-stone-700 active:bg-stone-50'
-              }`}
-            >
-              <span className="text-lg">{tab.icon}</span>
-              <span className="sm:inline">{tab.label}</span>
-            </button>
-          ))}
+      <section className="hero page-width" aria-labelledby="app-title">
+        <div className="hero-copy">
+          <p className="hero-author"><span /> SANDRA SIEMENS</p>
+          <h1 id="app-title">La Doncella <em>Roja</em><span className="title-period" aria-hidden="true">.</span></h1>
+          <p className="hero-description">Una novela sobre el encuentro entre la ciencia y lo sagrado</p>
+          <button className="action-button hero-button" onClick={explore}>Explorar el recorrido <ArrowRight size={18} /></button>
+          <div className="hero-footnote"><BookOpen size={14} /><span>Una lectura. Tres formas de explorar.</span></div>
         </div>
-      </nav>
-
-      {/* Content */}
-      <main className="max-w-5xl mx-auto p-4 md:p-6 flex-1 w-full">
-        {activeTab === 'mapa' && <MapTab />}
-        {activeTab === 'museo' && <MuseumTab />}
-        {activeTab === 'decision' && <DecisionTab />}
-      </main>
-
-      {/* Footer */}
-      <footer className="bg-stone-100 border-t border-stone-200 py-3 px-4">
-        <div className="max-w-5xl mx-auto text-center">
-          <p className="text-xs text-stone-400">
-            Basado en la novela &ldquo;La Doncella Roja&rdquo; de Sandra Siemens — Actividad educativa
-          </p>
-        </div>
-      </footer>
+        <ExpeditionArt />
+      </section>
+      <div className="activities-wrap" id="actividades">
+        <nav className="activity-navigation" aria-label="Actividades de la novela">
+          <div className="page-width activity-tabs" role="tablist" aria-label="Elegir actividad">
+            {tabs.map((tab, index) => (
+              <button key={tab.id} id={'tab-' + tab.id} role="tab" aria-selected={activeTab === tab.id}
+                aria-controls={'panel-' + tab.id} tabIndex={activeTab === tab.id ? 0 : -1}
+                onClick={() => activateTab(tab.id)} onKeyDown={(event) => handleTabKey(event, index)}
+                className={activeTab === tab.id ? 'activity-tab is-active' : 'activity-tab'}>
+                <span className="tab-index">0{index + 1}</span><tab.Icon size={21} strokeWidth={1.6} className="tab-icon" />
+                <span className="tab-copy"><strong>{tab.label}</strong><small>{tab.count}</small></span><ArrowRight size={16} className="tab-arrow" />
+              </button>
+            ))}
+          </div>
+        </nav>
+        <main className="activity-main page-width">
+          <div id="panel-mapa" role="tabpanel" aria-labelledby="tab-mapa" hidden={activeTab !== 'mapa'} tabIndex={0}><MapTab /></div>
+          <div id="panel-museo" role="tabpanel" aria-labelledby="tab-museo" hidden={activeTab !== 'museo'} tabIndex={0}><MuseumActivity artifacts={artifactItems} moments={discoveryMoments} /></div>
+          <div id="panel-decision" role="tabpanel" aria-labelledby="tab-decision" hidden={activeTab !== 'decision'} tabIndex={0}><DecisionTab /></div>
+        </main>
+      </div>
+      <footer className="site-footer"><div className="page-width footer-inner"><BookOpen size={16} /><p>Basado en la novela &ldquo;La Doncella Roja&rdquo; de Sandra Siemens — Actividad educativa</p><a href="#inicio">Volver al inicio <ArrowRight size={14} /></a></div></footer>
     </div>
   )
 }

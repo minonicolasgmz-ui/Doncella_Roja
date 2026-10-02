@@ -1,0 +1,198 @@
+.museum {
+  --museum-ink: #202a27;
+  --museum-muted: #65716a;
+  --museum-border: #dcded5;
+  --museum-paper: #fffefa;
+  color: var(--museum-ink);
+}
+
+.intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 40px;
+  align-items: center;
+  margin-bottom: 27px;
+}
+
+.intro :global(.body-copy) { max-width: 620px; }
+
+.progressPanel {
+  border-left: 1px solid var(--museum-border);
+  padding: 5px 0 5px 25px;
+}
+
+.progressSummary { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--museum-muted); }
+.progressSummary strong { font-size: 24px; line-height: 1; color: #294b3f; font-weight: 600; }
+.progressPercent { font-variant-numeric: tabular-nums; color: #294b3f; font-size: 12px; }
+.progressTrack { display: grid; gap: 3px; margin-top: 13px; height: 7px; }
+.progressTrack span { background: #e4e7df; border-radius: 1px; }
+.progressTrack .progressFilled { background: #294b3f; transition: background 200ms; }
+.resetButton { display: inline-flex; gap: 6px; align-items: center; color: var(--museum-muted); font-size: 12px; min-height: 36px; margin-top: 5px; cursor: pointer; }
+.resetButton:hover { color: #a84232; }
+
+.selectionBar {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-height: 69px;
+  padding: 12px 18px;
+  background: #e9eee7;
+  border: 1px solid #ced9cd;
+  border-radius: 10px;
+  position: sticky;
+  top: calc(var(--activity-nav-height, 91px) + 12px);
+  z-index: 20;
+  box-shadow: 0 3px 12px rgb(32 42 39 / 3%);
+}
+
+.stepNumber { width: 29px; height: 29px; border-radius: 50%; background: #294b3f; color: #fffefa; display: grid; place-items: center; font-size: 12px; flex-shrink: 0; }
+.selectionInstruction { font-size: 14px; font-weight: 500; }
+.keyboardHint { font-size: 11px; color: var(--museum-muted); margin-left: auto; }
+.selectionIcon { font-size: 26px; flex-shrink: 0; }
+.selectionText { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.selectionText span { text-transform: uppercase; letter-spacing: 1.4px; font-size: 9px; color: #4f6c5b; }
+.selectionText strong { font-size: 14px; font-weight: 600; }
+.jumpLink { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; color: #294b3f; min-height: 36px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.clearSelection { height: 36px; width: 36px; display: grid; place-items: center; border-radius: 6px; cursor: pointer; color: #294b3f; flex-shrink: 0; }
+.clearSelection:hover { background: #dce5d9; }
+.feedbackRegion { margin-bottom: 26px; }
+.feedback { display: flex; align-items: flex-start; gap: 9px; font-size: 13px; line-height: 1.6; margin: 10px 1px 0; }
+.feedback svg { margin-top: 3px; flex-shrink: 0; }
+.successFeedback { color: #294b3f; }
+.retryFeedback { color: #9b4133; }
+.completeMessage { display: flex; align-items: center; gap: 8px; background: #294b3f; color: #fffefa; border-radius: 8px; padding: 14px 18px; margin-top: 15px; font-size: 13px; flex-wrap: wrap; }
+.completeMessage svg { flex-shrink: 0; }
+
+.workspace { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+.inventory, .moments { min-width: 0; }
+.moments { scroll-margin-top: calc(var(--activity-nav-height, 91px) + 116px); }
+.areaHeading { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 15px; padding-bottom: 12px; border-bottom: 1px solid var(--museum-border); }
+.areaHeading h3 { font-size: 17px; font-family: Georgia, 'Times New Roman', serif; font-weight: 400; }
+.areaHeading > span { font-size: 10px; color: var(--museum-muted); white-space: nowrap; }
+.inventoryHint { color: var(--museum-muted); font-size: 10px; line-height: 1.5; margin: -4px 0 12px; }
+.artifactGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; max-height: 740px; overflow-y: auto; padding: 3px 7px 4px 3px; scrollbar-width: thin; scrollbar-color: #b8c3b4 transparent; }
+.artifactCard { position: relative; display: flex; flex-direction: column; align-items: flex-start; text-align: left; background: var(--museum-paper); border: 1px solid var(--museum-border); border-radius: 9px; padding: 15px 16px 0; min-height: 220px; cursor: grab; user-select: none; touch-action: pan-y; transition: border-color 160ms, box-shadow 160ms, background 160ms; }
+.artifactCard:hover { border-color: #b48a50; box-shadow: 0 4px 15px rgb(32 42 39 / 5%); }
+.cardMetadata { display: flex; justify-content: space-between; width: 100%; gap: 6px; font-size: 9px; text-transform: uppercase; color: #797d70; letter-spacing: 1px; }
+.cardMetadata > span:last-child { text-transform: none; letter-spacing: 0; }
+.artifactIcon { width: 50px; height: 50px; display: grid; place-items: center; border-radius: 50%; background: #f3eee1; margin: 15px 0 11px; font-size: 26px; }
+.artifactName { font-size: 15px; font-weight: 600; line-height: 1.4; color: var(--museum-ink); margin-bottom: 7px; }
+.artifactDescription { font-size: 12px; line-height: 1.6; color: var(--museum-muted); padding-bottom: 16px; }
+.cardAction { display: flex; align-items: center; gap: 5px; width: calc(100% + 32px); padding: 10px 16px; margin: auto -16px 0; color: #727b70; border-top: 1px solid #eeeee7; font-size: 10px; line-height: 1.4; }
+.cardAction svg:last-child { margin-left: auto; }
+.cardAction svg:first-child { margin-left: 0; }
+.artifactSelected { border: 1px solid #a84232; box-shadow: 0 0 0 2px rgb(168 66 50 / 12%); background: #fff9ef; }
+.artifactSelected .cardAction { background: #a84232; color: #fffefa; border-color: #a84232; border-radius: 0 0 7px 7px; }
+.artifactMatched { background: #f2f5ee; cursor: pointer; border-color: #ccd7c9; }
+.artifactMatched .artifactIcon { background: #e6ede0; }
+.artifactMatched .cardAction { color: #294b3f; border-color: #dce4d6; }
+.artifactDragging { opacity: 0.3; border-style: dashed; }
+
+.momentGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.momentCard { background: #f9f9f3; border: 1px solid #d7dbd1; border-radius: 10px; overflow: hidden; min-width: 0; transition: border-color 160ms, background 160ms, box-shadow 160ms; }
+.momentTarget { display: flex; flex-direction: column; align-items: flex-start; width: 100%; padding: 18px 17px 13px; text-align: left; }
+.momentTarget:disabled { cursor: default; opacity: 1; }
+.momentMetadata { display: flex; justify-content: space-between; width: 100%; align-items: center; margin-bottom: 14px; }
+.momentNumber { color: #b48a50; font-family: Georgia, 'Times New Roman', serif; font-size: 24px; line-height: 1; }
+.momentCount { display: inline-flex; align-items: center; gap: 4px; background: #e9ede4; border-radius: 4px; color: #5d6b5f; font-size: 10px; padding: 3px 6px; }
+.momentTitle { font-family: Georgia, 'Times New Roman', serif; font-size: 17px; line-height: 1.3; margin-bottom: 9px; }
+.momentDescription { color: var(--museum-muted); font-size: 12px; line-height: 1.7; }
+.momentHint { display: flex; align-items: center; gap: 7px; font-size: 9px; color: #858979; margin-top: 16px; padding-top: 10px; width: 100%; border-top: 1px solid #e6e8df; }
+.momentHint > span { font-size: 15px; }
+.momentAvailable { border-color: #b48a50; }
+.momentAvailable .momentTarget { cursor: pointer; }
+.momentAvailable .momentHint { color: #9b4133; }
+.momentAvailable:hover, .momentOver { background: #fbf2e4; border-color: #a84232; box-shadow: 0 0 0 2px rgb(168 66 50 / 10%); }
+.momentComplete { border-color: #a9bea7; background: #edf3e9; }
+.momentComplete .momentCount { background: #294b3f; color: #fffefa; }
+.matchedList { display: flex; flex-direction: column; gap: 0; padding: 0 11px 9px; }
+.matchedPiece { display: flex; align-items: center; gap: 7px; width: 100%; text-align: left; padding: 9px 6px; border-top: 1px solid #dce5d5; border-radius: 0; cursor: pointer; color: #294b3f; min-height: 47px; }
+.matchedPiece:hover { background: rgb(255 254 250 / 75%); }
+.matchedPiece > span:first-child { font-size: 19px; flex-shrink: 0; }
+.matchedPiece > svg { margin-left: auto; flex-shrink: 0; }
+.matchedName { font-size: 11px; font-weight: 500; line-height: 1.4; }
+.matchedName > span { display: block; font-size: 9px; color: #717d6c; margin-top: 3px; }
+
+.dragOverlay { display: flex; gap: 12px; align-items: center; background: #fff9ef; border: 1px solid #a84232; border-radius: 10px; padding: 18px; box-shadow: 0 14px 45px rgb(32 42 39 / 22%); color: var(--museum-ink); max-width: 330px; cursor: grabbing; transform: rotate(-2deg); }
+.dragOverlay > span { font-size: 30px; }
+.dragOverlay strong { font-size: 14px; }
+.dragOverlay p { font-size: 11px; color: var(--museum-muted); line-height: 1.6; margin-top: 3px; }
+
+.modalOverlay { position: fixed; inset: 0; background: rgb(21 35 28 / 60%); backdrop-filter: blur(4px); z-index: 80; animation: fadeIn 160ms ease-out; }
+.modalContent { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 81; width: calc(100% - 40px); max-width: 670px; max-height: calc(100dvh - 48px); overflow-y: auto; overscroll-behavior: contain; padding: 36px; border-radius: 15px; background: #fffefa; color: #202a27; box-shadow: 0 28px 80px rgb(0 0 0 / 22%); outline: none; animation: fadeIn 160ms ease-out; }
+.modalHeader { display: flex; gap: 18px; align-items: center; margin: 0 25px 27px 0; }
+.modalIcon { width: 76px; height: 76px; border: 1px solid #e3dcc9; background: #f5efe0; border-radius: 50%; font-size: 37px; display: grid; place-items: center; flex-shrink: 0; }
+.modalEyebrow { color: #8b6f48; text-transform: uppercase; font-size: 10px; letter-spacing: 1.5px; line-height: 1.6; margin-bottom: 6px; }
+.modalTitle { font-family: Georgia, 'Times New Roman', serif; font-size: 28px; font-weight: 400; line-height: 1.2; }
+.modalDescription { font-size: 13px; line-height: 1.6; color: #65716a; margin-top: 8px; }
+.modalClose { position: absolute; right: 14px; top: 14px; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 8px; cursor: pointer; color: #65716a; }
+.modalClose:hover { background: #f0eee5; color: #a84232; }
+.quotePanel { padding: 24px 27px 20px; border-left: 3px solid #a84232; background: #f6f0e3; border-radius: 0 9px 9px 0; }
+.quotePanel h4, .burialPanel h4 { text-transform: uppercase; font-size: 10px; letter-spacing: 1px; font-weight: 600; line-height: 1.6; margin-bottom: 13px; color: #9b4133; }
+.quotePanel blockquote { font-family: Georgia, 'Times New Roman', serif; font-size: 19px; line-height: 1.75; font-style: italic; }
+.quotePage { text-align: right; color: #8b6f48; margin-top: 12px; font-size: 11px; }
+.burialPanel { margin-top: 24px; padding-top: 22px; border-top: 1px solid #dcded5; }
+.burialPanel h4 { color: #294b3f; }
+.burialPanel p { font-size: 14px; line-height: 1.85; color: #4e5b53; }
+
+.museum button:focus-visible, .museum a:focus-visible, .modalClose:focus-visible { outline: 2px solid #a84232; outline-offset: 4px; }
+.momentTarget:focus-visible { outline-offset: -4px !important; }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+@media (min-width: 1200px) {
+  .artifactGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 1050px) {
+  .workspace { grid-template-columns: 1fr; gap: 31px; }
+  .artifactGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); max-height: 600px; }
+  .momentGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .momentTitle { font-size: 20px; }
+  .momentDescription { font-size: 13px; }
+  .momentTarget { padding: 21px; }
+  .momentHint { font-size: 10px; }
+  .matchedName { font-size: 12px; }
+}
+
+@media (max-width: 700px) {
+  .intro { grid-template-columns: 1fr; gap: 22px; }
+  .progressPanel { border-left: 0; border-top: 1px solid var(--museum-border); padding: 17px 0 0; }
+  .artifactGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 500px; }
+  .selectionBar { padding: 11px 13px; gap: 9px; flex-wrap: wrap; }
+  .keyboardHint { display: none; }
+  .selectionText { flex: 1; }
+  .selectionText strong { font-size: 12px; }
+  .jumpLink { order: 4; margin-left: 35px; min-height: 30px; font-size: 11px; }
+  .selectionIcon { font-size: 23px; }
+  .clearSelection { width: 30px; height: 30px; }
+  .selectionInstruction { font-size: 12px; }
+  .moments { scroll-margin-top: calc(var(--activity-nav-height, 88px) + 145px); }
+  .areaHeading h3 { font-size: 18px; }
+  .artifactCard { padding: 13px 12px 0; min-height: 220px; }
+  .cardAction { width: calc(100% + 24px); margin: auto -12px 0; padding: 10px 12px; font-size: 9px; }
+  .artifactDescription { font-size: 12px; }
+  .artifactName { font-size: 14px; }
+  .artifactIcon { width: 44px; height: 44px; font-size: 25px; }
+  .momentTarget { padding: 17px 15px 12px; }
+  .momentTitle { font-size: 17px; }
+  .momentDescription { font-size: 11px; }
+  .momentHint { font-size: 9px; }
+  .modalContent { padding: 28px 22px; }
+  .modalHeader { align-items: flex-start; gap: 13px; margin-top: 7px; }
+  .modalIcon { width: 49px; height: 49px; font-size: 27px; }
+  .modalTitle { font-size: 23px; }
+  .modalEyebrow { font-size: 8px; letter-spacing: 1px; }
+  .quotePanel { padding: 20px; }
+  .quotePanel blockquote { font-size: 17px; }
+}
+
+@media (max-width: 440px) {
+  .momentGrid { grid-template-columns: 1fr; }
+  .momentTitle { font-size: 21px; }
+  .momentDescription { font-size: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .museum *, .modalOverlay, .modalContent { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
